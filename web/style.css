@@ -1,0 +1,546 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Light mode colors (default) */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --danger-color: #e74c3c;
+    --background: #f8f9fa;
+    --surface: #ffffff;
+    --text-primary: #2c3e50;
+    --text-secondary: #7f8c8d;
+    --border-color: #e0e0e0;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --link-color: #3498db;
+    --link-hover: #2980b9;
+    --input-bg: #ffffff;
+    --input-border: #ddd;
+    --configured-bg: #e8f5e9;
+    --configured-border: #4CAF50;
+    --configured-text: #2e7d32;
+}
+
+/* Dark mode colors */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-color: #9b59b6;
+        --secondary-color: #bb86fc;
+        --success-color: #4ade80;
+        --warning-color: #fbbf24;
+        --danger-color: #f87171;
+        --background: #1a1625;
+        --surface: #2d2640;
+        --text-primary: #e1d5f0;
+        --text-secondary: #a094b7;
+        --border-color: #4a3f5c;
+        --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        --link-color: #bb86fc;
+        --link-hover: #d4a5ff;
+        --input-bg: #3d3552;
+        --input-border: #5a4d70;
+        --configured-bg: #2d3b2d;
+        --configured-border: #4ade80;
+        --configured-text: #86efac;
+    }
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--background);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 40px 0;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.tagline {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Configuration sections */
+.config-section {
+    background: var(--surface);
+    padding: 30px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.config-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.section-desc {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.template-note {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: var(--background);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+/* Form elements */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Form styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="time"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.3s, background-color 0.3s;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="time"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.1);
+}
+
+/* Configured field indicator */
+input.configured,
+select.configured {
+    background-color: var(--configured-bg);
+    border-color: var(--configured-border);
+}
+
+input.configured::placeholder {
+    color: var(--configured-text);
+    opacity: 0.8;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-group small a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.form-group small a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* Checkbox styling */
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+    accent-color: var(--primary-color);
+}
+
+.form-group label input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+/* Provider config sections */
+.provider-config {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: var(--background);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+/* SMTP setup information section */
+.smtp-setup-info {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+}
+
+.smtp-setup-info h4 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.smtp-setup-info ol {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.smtp-setup-info li {
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.smtp-setup-info p {
+    margin: 10px 0;
+    line-height: 1.5;
+}
+
+.smtp-setup-info em {
+    display: block;
+    margin-top: 15px;
+    padding: 10px 15px;
+    background-color: var(--warning-bg, #fff3cd);
+    color: var(--warning-text, #856404);
+    border-radius: 6px;
+    border-left: 3px solid var(--warning-border, #ffeaa7);
+    font-style: normal;
+    font-size: 0.9rem;
+}
+
+.smtp-setup-info a {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.smtp-setup-info a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* Letter settings group */
+.letter-settings-group {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.letter-settings-group h3 {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+/* Buttons */
+.button-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 40px;
+    justify-content: center;
+}
+
+.button-group .btn {
+    width: 200px;
+    text-align: center;
+}
+
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 180px; /* Fixed minimum width to prevent size changes */
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+    filter: brightness(1.1);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(187, 134, 252, 0.4);
+    filter: brightness(1.1);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    margin-top: 60px;
+    padding: 20px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .config-section {
+        padding: 20px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
+/* Loading state */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Privacy badge */
+.privacy-badge {
+    display: inline-block;
+    background-color: var(--success-color);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+/* Floating notification */
+.floating-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+    max-width: 400px;
+    box-shadow: var(--shadow);
+}
+
+.floating-notification.success {
+    background-color: var(--success-color);
+    color: white;
+    border: 1px solid var(--success-color);
+}
+
+.floating-notification.error {
+    background-color: var(--danger-color);
+    color: white;
+    border: 1px solid var(--danger-color);
+}
+
+.floating-notification.slide-up {
+    animation: slideUp 0.3s ease-out forwards;
+}
+
+.floating-notification.slide-up-quick {
+    animation: slideUp 0.2s ease-out forwards;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+}
+
+/* Hidden elements */
+.hidden {
+    display: none !important;
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+    /* Make shadows more subtle in dark mode */
+    .config-section {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Adjust placeholder text */
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+    
+    /* Make focus states more visible */
+    input:focus,
+    select:focus,
+    textarea:focus {
+        box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.2);
+    }
+    
+    /* Adjust button shadows */
+    .btn-primary:hover {
+        box-shadow: 0 4px 16px rgba(155, 89, 182, 0.4);
+    }
+    
+    .btn-secondary:hover {
+        box-shadow: 0 4px 16px rgba(187, 134, 252, 0.4);
+    }
+} 
+
+/* Environment override warnings */
+.env-override-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.env-override-warning strong {
+    color: #7c5d04;
+}
+
+.env-override-warning code {
+    background: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+/* Field-specific override styling */
+.env-overridden {
+    border-color: #ffc107 !important;
+    background-color: #fff9e6 !important;
+    position: relative;
+}
+
+.env-overridden::after {
+    content: "🔒";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+/* Dark mode adjustments for override warnings */
+@media (prefers-color-scheme: dark) {
+    .env-override-warning {
+        background: #3d3a2a;
+        border-color: #5d5a3a;
+        color: #d4c479;
+    }
+    
+    .env-override-warning strong {
+        color: #e6d48b;
+    }
+    
+    .env-override-warning code {
+        background: #2d2a3a;
+        color: #d4c479;
+    }
+    
+    .env-overridden {
+        border-color: #ffc107 !important;
+        background-color: #3d3a2a !important;
+    }
+}

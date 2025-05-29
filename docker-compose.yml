@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lettersmith
+      POSTGRES_PASSWORD: lettersmith_pass
+      POSTGRES_DB: lettersmith
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lettersmith"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: 
+      context: .
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    depends_on:
+      db:
+        condition: service_healthy
+    network_mode: host
+    environment:
+      DATABASE_URL: postgres://lettersmith:lettersmith_pass@localhost:5432/lettersmith?sslmode=disable
+      PORT: 8080
+    volumes:
+      #  mount the .env file to allow web UI to update it
+      - ./.env:/app/.env
+      # mount web directory for serving static files
+      - ./web:/app/web:ro
+    env_file:
+      - .env
+
+volumes:
+  postgres_data: 
