@@ -21,11 +21,11 @@ COPY --from=builder /build/lettersmith .
 COPY --from=builder /build/web ./web
 COPY --from=builder /build/migrations ./migrations
 
-ARG USER_ID=1000
-ARG GROUP_ID=1000
 
-RUN addgroup -g ${GROUP_ID} appgroup && \
-    adduser -D -u ${USER_ID} -G appgroup appuser
+
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup appuser
+
 
 RUN chown -R appuser:appgroup /app
 
