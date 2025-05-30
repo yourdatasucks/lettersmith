@@ -9,9 +9,11 @@ RUN go mod download
 
 COPY . .
 
+RUN cat go.mod
+
 ENV GO111MODULE=on
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o lettersmith ./cmd/server
+RUN go build -o lettersmith ./cmd/server
 
 FROM alpine:latest
 
