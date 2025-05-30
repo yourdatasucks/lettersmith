@@ -4,10 +4,12 @@ WORKDIR /app
 
 RUN apk add --no-cache git
 
-COPY go.mod go.sum ./
-RUN go mod download
-
+# Copy all source files first
 COPY . .
+
+# Ensure Go modules are properly initialized
+RUN go mod download
+RUN go mod verify
 
 ENV GO111MODULE=on
 
