@@ -9,8 +9,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go mod tidy
-
 ENV GO111MODULE=on
 
 RUN go build -o lettersmith ./cmd/server
