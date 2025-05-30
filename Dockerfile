@@ -7,13 +7,33 @@ RUN apk add --no-cache git
 # Copy all source files first
 COPY . .
 
+# Debug: See what's actually in the container in GitHub Actions
+RUN echo "=== DEBUGGING IN GITHUB ACTIONS ==="
+RUN ls -la
+RUN echo "=== INTERNAL DIRECTORY ==="
+RUN ls -la internal/
+RUN echo "=== CONFIG DIRECTORY ==="
+RUN ls -la internal/config/
+RUN echo "=== GO.MOD CONTENT ==="
+RUN cat go.mod
+RUN echo "=== GO VERSION ==="
+RUN go version
+RUN echo "=== GO ENV ==="
+RUN go env
+RUN echo "=== CURRENT WORKING DIRECTORY ==="
+RUN pwd
+RUN echo "=== GOPATH AND GOMOD ==="
+RUN echo "GOPATH: $GOPATH"
+RUN echo "GO111MODULE: $GO111MODULE"
+
 # Ensure Go modules are properly initialized
 RUN go mod download
 RUN go mod verify
 
 ENV GO111MODULE=on
 
-RUN go build -o lettersmith ./cmd/server
+# Try building with verbose output
+RUN go build -v -o lettersmith ./cmd/server
 
 FROM alpine:latest
 
