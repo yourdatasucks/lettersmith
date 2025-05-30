@@ -9,6 +9,8 @@ RUN go mod download
 
 COPY . .
 
+RUN apk add --no-cache tree && tree -L 2
+
 RUN GO111MODULE=on GOFLAGS=-mod=mod CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o lettersmith ./cmd/server
 
 FROM alpine:latest
