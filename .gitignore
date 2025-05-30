@@ -21,11 +21,6 @@ go.work
 .env
 .env.local
 
-# Old configuration files (no longer used)
-config/
-config.json
-config.example.json
-
 # IDE specific files
 .idea/
 .vscode/
