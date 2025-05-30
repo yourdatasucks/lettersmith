@@ -1,0 +1,23 @@
+# Ignore version control and metadata
+.git
+.gitignore
+.vscode
+.DS_Store
+*.swp
+*.swo
+
+# Ignore Go output and test artifacts
+lettersmith
+*.test
+*.out
+*.log
+*.env
+
+# Ignore unused dependency caches
+vendor/
+node_modules/
+
+# Optional: ignore non-essential folders
+docs/
+scripts/
+examples/
