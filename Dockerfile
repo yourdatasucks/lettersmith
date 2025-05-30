@@ -1,7 +1,6 @@
 FROM golang:1.23-alpine AS builder
 
-# Match the module path exactly to satisfy internal imports
-WORKDIR /go/src/github.com/yourdatasucks/lettersmith
+WORKDIR /app
 
 RUN apk add --no-cache git
 
@@ -10,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN cat go.mod
+RUN go mod tidy
 
 ENV GO111MODULE=on
 
@@ -22,9 +21,9 @@ RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
-COPY --from=builder /go/src/github.com/yourdatasucks/lettersmith/lettersmith .
-COPY --from=builder /go/src/github.com/yourdatasucks/lettersmith/web ./web
-COPY --from=builder /go/src/github.com/yourdatasucks/lettersmith/migrations ./migrations
+COPY --from=builder /app/lettersmith .
+COPY --from=builder /app/web ./web
+COPY --from=builder /app/migrations ./migrations
 
 RUN addgroup -g 1000 appgroup && \
     adduser -D -u 1000 -G appgroup appuser
