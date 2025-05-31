@@ -183,8 +183,8 @@ func handleGetConfig(w http.ResponseWriter, _ *http.Request, cfg *config.Config)
 		},
 		"user":       currentCfg.User,
 		"scheduler":  currentCfg.Scheduler,
-		"letter":     currentCfg.Letter, // Now uses fresh config from .env
-		"env_values": envValues,         // Show actual .env values for editing
+		"letter":     currentCfg.Letter,            // Now uses fresh config from .env
+		"env_values": sanitizeEnvValues(envValues), // Sanitize secrets before returning
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -362,7 +362,6 @@ func readEnvFile() map[string]string {
 
 	data, err := os.ReadFile(".env")
 	if err != nil {
-
 		return envValues
 	}
 
@@ -389,7 +388,6 @@ func readEnvFile() map[string]string {
 }
 
 func updateEnvFile(updates map[string]interface{}) error {
-
 	cwd, _ := os.Getwd()
 	log.Printf("Current working directory: %s", cwd)
 
@@ -399,6 +397,7 @@ func updateEnvFile(updates map[string]interface{}) error {
 		log.Printf(".env file does not exist yet: %v", err)
 	}
 
+	// Test write permissions
 	testFile := ".env_test_write"
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		log.Printf("ERROR: Cannot write to current directory: %v", err)
@@ -713,6 +712,22 @@ func getEnvFileStatus(envValues map[string]string, key string) string {
 		return "set (masked)"
 	}
 	return value
+}
+
+func sanitizeEnvValues(envValues map[string]string) map[string]string {
+	sanitized := make(map[string]string)
+
+	for key, value := range envValues {
+		if value == "" {
+			sanitized[key] = ""
+		} else if strings.Contains(strings.ToLower(key), "key") || strings.Contains(strings.ToLower(key), "password") {
+			sanitized[key] = "••••••••" // Use bullet characters to indicate it's set but hidden
+		} else {
+			sanitized[key] = value
+		}
+	}
+
+	return sanitized
 }
 
 func handleTestEmail(w http.ResponseWriter, r *http.Request, _ *config.Config) {

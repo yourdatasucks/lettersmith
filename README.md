@@ -22,16 +22,25 @@ git clone https://github.com/yourusername/lettersmith.git
 cd lettersmith
 ```
 
-2. Start the application:
+2. Create a `.env` file (required for Docker):
+```bash
+# Option A: Create a blank .env file
+touch .env
+
+# Option B: Copy from example (recommended)
+cp env.example .env
+```
+
+3. Start the application:
 ```bash
 docker compose up -d
 ```
 
-3. Open http://localhost:8080 in your browser to configure the application
+4. Open http://localhost:8080 in your browser to configure the application
 
-4. Fill in your information and API keys, then click "Save Configuration"
+5. Fill in your information and API keys, then click "Save Configuration"
 
-That's it! The web UI will create your `.env` file automatically.
+**That's it!** The web UI will update your `.env` file automatically and persist your configuration across container restarts.
 
 ## Configuration
 
@@ -39,7 +48,6 @@ Lettersmith uses a **simple, user-friendly configuration system**:
 
 - **Web UI** - Easy point-and-click configuration for non-technical users
 - **`.env` file** - The source of truth that the web UI manages for you
-- **JSON config** - Optional backup for advanced users
 
 ### 🎯 For Most Users: Use the Web UI
 
@@ -48,9 +56,15 @@ The web interface is designed to be **noob-friendly** and handles all the techni
 1. Navigate to http://localhost:8080
 2. Fill in the required fields:
    - **User Information**: Your name, email, and ZIP code
-   - **AI Provider**: Choose OpenAI or Anthropic and provide API key
+   - **Letter Generation** — Choose your method:
+   
+   | Generation Method | How it Works | What You Need | Best For |
+   |-------------------|--------------|---------------|----------|
+   | **🤖 AI-Powered** | Creates unique letters using ChatGPT/Claude | API key ($) | Personalized, varied content |
+   | **📝 Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs |
+   
    - **Email Provider**: Configure SMTP, SendGrid, or Mailgun
-   - **Representative APIs**: Add API keys for ProPublica and OpenStates
+   - **Representative APIs**: Add API keys for OpenStates
    - **Letter Settings**: Customize tone and length
 3. Click "Save Configuration"
 
@@ -62,15 +76,29 @@ The web interface is designed to be **noob-friendly** and handles all the techni
 
 ### 🤓 For Advanced Users: Direct .env Editing
 
-If you prefer manual configuration, you can edit the `.env` file directly:
+For manual configuration or if you prefer to pre-populate your settings:
 
+**Option A: Use the initialization script**
+```bash
+./init-env.sh
+# This copies env.example to .env, then edit your values:
+nano .env
+docker compose up -d
+```
+
+**Option B: Copy and edit manually**
 ```bash
 # Copy the example file
 cp env.example .env
 
 # Edit with your values
 nano .env
+
+# Start the application
+docker compose up -d
 ```
+
+**Note**: The web UI can still update any `.env` file you create manually. Your manual edits will be preserved and merged with web UI changes.
 
 **Key environment variables:**
 ```bash
@@ -94,9 +122,7 @@ SMTP_USERNAME=your-email@example.com
 SMTP_PASSWORD=your-password
 
 # Optional: Representative APIs
-PROPUBLICA_API_KEY=your-propublica-key
 OPENSTATES_API_KEY=your-openstates-key
-USAGOV_API_ENABLED=true
 
 # Database (Docker handles this automatically)
 DATABASE_URL=postgres://lettersmith:lettersmith_pass@db:5432/lettersmith?sslmode=disable
@@ -106,8 +132,7 @@ DATABASE_URL=postgres://lettersmith:lettersmith_pass@db:5432/lettersmith?sslmode
 
 The application loads configuration in this order:
 1. **Environment Variables** (`.env` file) - Primary source
-2. **JSON Configuration** (optional fallback)
-3. **Application Defaults**
+2. **Application Defaults**
 
 The web UI reads from and writes to your `.env` file, making it both beginner-friendly and technically sound.
 
@@ -181,162 +206,32 @@ docker compose exec app sh
 docker compose exec db psql -U lettersmith
 ```
 
-## Development
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Go 1.23+ (only for local development without Docker)
-- PostgreSQL (only for local development without Docker)
-
-### Local Development
-
-For development without Docker:
-
-```bash
-# Install dependencies
-go mod download
-
-# Set up configuration
-cp config.example.json config/config.json
-# Edit config/config.json with your settings
-
-# Run the server
-go run cmd/server/main.go
-
-# Run tests
-go test -v ./...
-
-# Format code
-go fmt ./...
-```
-
-### Building
-
-The application uses a multi-stage Docker build for minimal image size:
-
-```dockerfile
-# Build stage: ~400MB
-FROM golang:1.23-alpine AS builder
-
-# Final stage: ~16MB
-FROM alpine:latest
-```
-
-## API Endpoints
-
-- `GET /` - Web configuration UI
-- `GET /api/health` - Health check endpoint
-- `GET /api/config` - Get current configuration (sanitized, no secrets)
-- `POST /api/config` - Update configuration (.env file)
-- `GET /api/config/debug` - Debug configuration status and environment variables
-
-### Planned Endpoints
-
-- `POST /api/letters/generate` - Generate a test letter
-- `POST /api/letters/send` - Manually trigger letter sending
-- `GET /api/letters/history` - View sent letters
-- `GET /api/representatives` - List found representatives
-
-## Configuration Details
-
-### AI Providers
-
-**OpenAI**
-- Models: gpt-4, gpt-3.5-turbo
-- Requires API key from https://platform.openai.com
-
-**Anthropic**
-- Models: claude-3-opus, claude-3-sonnet, claude-3-haiku
-- Requires API key from https://console.anthropic.com
-
-### Email Providers
-
-**SMTP** (Recommended for privacy)
-- Works with any SMTP server
-- ProtonMail Bridge recommended for privacy
-- Supports standard SMTP authentication
-
-**SendGrid**
-- Requires API key from https://sendgrid.com
-- Good deliverability rates
-
-**Mailgun**
-- Requires API key and domain
-- Reliable for transactional email
-
-### Letter Customization
-
-- **Tone Options**: professional, passionate, conversational
-- **Max Length**: Configurable (default: 500 words)
-- **Themes**: Privacy rights, consumer protection, data transparency, corporate accountability
-
-## Troubleshooting
-
-### Configuration Issues
-
-**Web UI not saving settings:**
-- Check that the application has write permissions to the current directory
-- Look for errors in the logs: `docker compose logs -f app`
-
-**Environment variables not taking effect:**
-- Restart the application: `docker compose restart`
-- Check the debug endpoint: http://localhost:8080/api/config/debug
-
-### Container Issues
-
-```bash
-# Check if services are running
-docker compose ps
-
-# View recent logs
-docker compose logs --tail=50
-
-# Restart services
-docker compose restart
-
-# Rebuild from scratch
-docker compose down
-docker compose up -d --build
-```
-
-### Database Connection
-
-The application automatically connects to the PostgreSQL container. If you see connection errors:
-
-1. Ensure the database container is healthy: `docker compose ps`
-2. Check database logs: `docker compose logs db`
-3. Verify DATABASE_URL in your .env file
-
-## Security Notes
-
-- All sensitive configuration is stored in your `.env` file
-- API keys and passwords are never returned by the API
-- The `.env` file should be kept secure and never committed to version control
-- Use volume mounts for persistent storage
-- Consider encrypting the `.env` file in production
-
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions to Lettersmith! This project is built with privacy as a core principle and aims to empower citizen advocacy.
+
+### Quick Start for Contributors
+
+1. Check out the **[Development Guide](DEVELOPMENT.md)** for detailed setup instructions
+2. Fork the repository and create a feature branch
+3. Follow our coding standards and add tests for new features
+4. Open a pull request with a clear description of your changes
 
 ### Development Guidelines
 
-- Follow Go best practices
-- Add tests for new features
-- Update documentation
-- Respect user privacy
+- **Privacy First**: Never log or expose sensitive data (API keys, passwords, emails)
+- **User-Friendly**: Keep the web UI simple and accessible
+- **Documentation**: Update both user and developer documentation
+- **Testing**: Maintain good test coverage for reliability
+
+For detailed development setup, API documentation, and technical guidelines, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## License
 
-MIT License - see LICENSE file for details
+GPL v3 License - see LICENSE file for details
 
 ## Acknowledgments
 
 - Built with privacy as a core principle
 - Inspired by the need for citizen advocacy
-- Thanks to all contributors and privacy advocates 
+- Thanks to all contributors and privacy advocates

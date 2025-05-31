@@ -25,12 +25,10 @@ services:
       DATABASE_URL: postgres://lettersmith:lettersmith_pass@localhost:5432/lettersmith?sslmode=disable
       PORT: 8080
     volumes:
-      #  mount the .env file to allow web UI to update it
+      # Mount .env file for configuration persistence
       - ./.env:/app/.env
       # mount web directory for serving static files
       - ./web:/app/web:ro
-    env_file:
-      - .env
 
 volumes:
   postgres_data: 
