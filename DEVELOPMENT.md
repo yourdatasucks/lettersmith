@@ -421,4 +421,81 @@ Or in Docker:
 # docker-compose.dev.yml
 environment:
   - LOG_LEVEL=debug
+```
+
+## Release Process
+
+Lettersmith uses semantic versioning (semver) for releases with an automated CI/CD pipeline.
+
+### Version Tags
+
+- **`latest`** - Latest stable release from main branch
+- **`dev`** - Latest development build from dev branch  
+- **`v1.2.3`** - Specific semantic version releases
+- **`v1.2`** - Latest patch version for minor release
+- **`v1`** - Latest minor version for major release
+
+### Creating a Release
+
+1. **Ensure you're on main branch with clean working directory**
+2. **Use the release script**:
+   ```bash
+   ./scripts/release.sh
+   ```
+3. **Choose version bump type**:
+   - **Patch** (v1.0.1) - Bug fixes, no new features
+   - **Minor** (v1.1.0) - New features, backward compatible
+   - **Major** (v2.0.0) - Breaking changes
+   - **Custom** - For pre-releases like v1.0.0-beta.1
+
+4. **The script will**:
+   - Generate changelog from git commits
+   - Create and push git tag
+   - Trigger GitHub Actions build
+   - Create GitHub release automatically
+
+### Manual Release Process
+
+If you prefer manual control:
+
+```bash
+# Ensure clean state
+git checkout main
+git pull origin main
+
+# Create and push tag
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# GitHub Actions will handle the rest
+```
+
+### Docker Image Publishing
+
+GitHub Actions automatically publishes images to GitHub Container Registry:
+
+- **Dev builds**: `ghcr.io/yourdatasucks/lettersmith:dev`
+- **Main builds**: `ghcr.io/yourdatasucks/lettersmith:latest`  
+- **Tagged releases**: `ghcr.io/yourdatasucks/lettersmith:v1.0.0`
+
+### Using Different Versions
+
+**In docker-compose.yml**:
+```yaml
+services:
+  app:
+    # Use latest stable
+    image: ghcr.io/yourdatasucks/lettersmith:latest
+    
+    # Or use development version
+    # image: ghcr.io/yourdatasucks/lettersmith:dev
+    
+    # Or pin to specific version
+    # image: ghcr.io/yourdatasucks/lettersmith:v1.0.0
+```
+
+**Pull specific version**:
+```bash
+docker pull ghcr.io/yourdatasucks/lettersmith:v1.0.0
+docker compose up -d
 ``` 

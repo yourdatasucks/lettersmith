@@ -18,7 +18,7 @@ A containerized Go application that uses AI to generate and send unique letters 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/lettersmith.git
+git clone https://github.com/yourdatasucks/lettersmith.git
 cd lettersmith
 ```
 
@@ -35,6 +35,11 @@ cp env.example .env
 ```bash
 docker compose up -d
 ```
+
+**Docker Image Versions:**
+- `latest` - Latest stable release (recommended)
+- `dev` - Development version with latest features
+- `v1.0.0` - Specific version tags
 
 4. Open http://localhost:8080 in your browser to configure the application
 
@@ -60,8 +65,8 @@ The web interface is designed to be **noob-friendly** and handles all the techni
    
    | Generation Method | How it Works | What You Need | Best For |
    |-------------------|--------------|---------------|----------|
-   | **🤖 AI-Powered** | Creates unique letters using ChatGPT/Claude | API key ($) | Personalized, varied content |
-   | **📝 Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs |
+   | **AI-Powered** | Creates unique letters using ChatGPT/Claude | API key ($) | Personalized, varied content |
+   | **Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs |
    
    - **Email Provider**: Configure SMTP, SendGrid, or Mailgun
    - **Representative APIs**: Add API keys for OpenStates
