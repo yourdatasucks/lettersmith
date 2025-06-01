@@ -17,8 +17,8 @@ services:
 
   app:
     # Available tags: latest (stable), dev (development), or specific versions like v1.0.0
-    #image: ghcr.io/yourdatasucks/lettersmith:dev
-    image: lettersmith-test:latest
+    image: ghcr.io/yourdatasucks/lettersmith:dev
+    # image: lettersmith-test:latest
     depends_on:
       db:
         condition: service_healthy
