@@ -16,6 +16,8 @@ type Config struct {
 	User            UserConfig
 	Scheduler       SchedulerConfig
 	Letter          LetterConfig
+	ZipDataUpdate   bool
+	CensusBureauURL string
 }
 
 type DatabaseConfig struct {
@@ -249,6 +251,15 @@ func loadFromEnv(cfg *Config) {
 			cfg.Letter.TemplateConfig.Personalize = personalize == "true"
 		}
 	}
+
+	// ZIP code data update setting
+	if zipUpdate := os.Getenv("ZIP_DATA_UPDATE"); zipUpdate != "" {
+		cfg.ZipDataUpdate = zipUpdate == "true"
+	}
+
+	if censusBureauURL := os.Getenv("CENSUS_BUREAU_URL"); censusBureauURL != "" {
+		cfg.CensusBureauURL = censusBureauURL
+	}
 }
 
 func parsePostgreSQLURL(url string) (*DatabaseConfig, error) {
@@ -379,15 +390,26 @@ func setDefaults(cfg *Config) {
 	if cfg.AI.Anthropic.Model == "" {
 		cfg.AI.Anthropic.Model = "claude-3-sonnet-20240229"
 	}
+
+	// Set default ZIP data update to true for fresh installs
+	if cfg.ZipDataUpdate == false {
+		cfg.ZipDataUpdate = true
+	}
 }
 
-func (c *Config) DatabaseURL() string {
+// DatabaseURL returns the database connection string
+func (cfg *Config) DatabaseURL() string {
+	if cfg.Database.Host == "" {
+		// If no database config is provided, use default for development
+		return "postgres://lettersmith:lettersmith_pass@localhost:5432/lettersmith?sslmode=disable"
+	}
+
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		c.Database.User,
-		c.Database.Password,
-		c.Database.Host,
-		c.Database.Port,
-		c.Database.Name,
-		c.Database.SSLMode,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.Name,
+		cfg.Database.SSLMode,
 	)
 }

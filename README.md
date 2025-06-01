@@ -157,6 +157,35 @@ The project uses privacy-respecting APIs:
 
 - **OpenStates API**: State legislature data (free tier available)
 
+### ZIP Code to Coordinates Conversion
+
+Lettersmith automatically converts ZIP codes to latitude/longitude coordinates for the OpenStates API, which requires geographic coordinates rather than postal codes.
+
+**How it works:**
+1. **Official Source**: Downloads data from the **US Census Bureau's ZIP Code Tabulation Areas (ZCTA) Gazetteer** - the authoritative government source
+2. **Future-Proof Loading**: Automatically tries multiple URL patterns and years to handle Census Bureau reorganizations
+3. **Automatic Loading**: On first startup, the application downloads the latest available Census Bureau data  
+4. **Fallback Protection**: If all Census Bureau URLs fail, it uses an embedded dataset of major US cities
+5. **Docker-Friendly**: No manual intervention required - data is ready when the container starts
+6. **Smart Updates**: Set `ZIP_DATA_UPDATE=true` to refresh data on startup (default for new installations)
+7. **Configurable**: Override URLs via `CENSUS_BUREAU_URL` environment variable if needed
+
+**Future-Proof URL Strategy:**
+```
+✅ 2024: https://...2024_Gazetteer/2024_Gaz_zcta_national.zip
+✅ 2023: https://...2023_Gazetteer/2023_Gaz_zcta_national.zip  (fallback)
+✅ 2022: https://...2022_Gazetteer/2022_Gaz_zcta_national.zip  (fallback)
+✅ Alternative: https://...gazetteer/Gaz_zcta_national.zip     (no year)
+✅ Alternative: https://...gazetteer/current/zcta_national.zip  (current)
+✅ Custom: Set CENSUS_BUREAU_URL=your-url                      (override)
+```
+
+**Data Sources:**
+- **Primary**: US Census Bureau ZIP Code Tabulation Areas (ZCTA) - Official government data, comprehensive & accurate
+- **Fallback**: Embedded dataset of 15 major US metropolitan areas
+
+This ensures reliable ZIP-to-coordinate conversion without external API dependencies during runtime, using the most authoritative data available, and automatically adapts to Census Bureau URL changes.
+
 ## Project Structure
 
 ```

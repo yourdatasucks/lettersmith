@@ -4,10 +4,14 @@ WORKDIR /app
 
 RUN apk add --no-cache git
 
-# Copy all source files first
+# Copy go.mod and go.sum first for better caching
+COPY go.mod go.sum ./
+
+# Copy all source files
 COPY . .
 
-# Ensure Go modules are properly initialized
+# Let Go handle dependency management automatically
+RUN go mod tidy
 RUN go mod download
 RUN go mod verify
 

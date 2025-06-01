@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,17 +9,53 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/yourdatasucks/lettersmith/internal/config"
 	"github.com/yourdatasucks/lettersmith/internal/email"
+	"github.com/yourdatasucks/lettersmith/internal/geocoding"
+
+	_ "github.com/lib/pq"
 )
 
-func main() {
+var geocoderInstance *geocoding.ZipGeocoder
 
+func main() {
+	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("Failed to load configuration: ", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	// Connect to database
+	dbURL := cfg.DatabaseURL()
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Database connection failed: %v", err)
+	}
+
+	log.Println("Connected to database successfully")
+
+	// Initialize geocoding service for ZIP code to coordinates conversion
+	geocodingConfig := &geocoding.GeocodingConfig{
+		CustomCensusBureauURL: cfg.CensusBureauURL,
+	}
+	geocoder := geocoding.NewZipGeocoderWithConfig(db, geocodingConfig)
+	if cfg.ZipDataUpdate {
+		log.Println("Initializing ZIP code geocoding data...")
+		if err := geocoder.LoadZipData(); err != nil {
+			log.Printf("Warning: Failed to load ZIP code data: %v", err)
+			log.Println("OpenStates API calls may fail without ZIP coordinate data")
+		}
+	}
+
+	// Store geocoder for use in handlers
+	geocoderInstance = geocoder
 
 	mux := http.NewServeMux()
 
@@ -55,6 +92,15 @@ func main() {
 			return
 		}
 		handleConfigDebug(w, r, cfg)
+	})
+
+	// Add system health endpoint
+	mux.HandleFunc("/api/system/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handleSystemStatus(w, r, cfg, db)
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -898,4 +944,223 @@ This email was sent as part of your email configuration testing.`
 		"message": "Test email sent successfully! Check your inbox.",
 		"details": fmt.Sprintf("Email sent to %s via %s:%d", userEmail, emailConfig.SMTP.Host, emailConfig.SMTP.Port),
 	})
+}
+
+func handleSystemStatus(w http.ResponseWriter, _ *http.Request, _ *config.Config, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	envValues := readEnvFile()
+	status := map[string]interface{}{
+		"overall_status":     "healthy",
+		"timestamp":          fmt.Sprintf("%v", time.Now().UTC().Format(time.RFC3339)),
+		"services":           map[string]interface{}{},
+		"missing_components": []string{},
+		"summary":            map[string]interface{}{},
+	}
+
+	services := status["services"].(map[string]interface{})
+	var missingComponents []string
+	healthyCount := 0
+	totalServices := 0
+
+	// Check Database
+	totalServices++
+	dbStatus := map[string]interface{}{
+		"name":    "Database",
+		"status":  "unknown",
+		"details": "",
+	}
+	if db != nil {
+		if err := db.Ping(); err != nil {
+			dbStatus["status"] = "error"
+			dbStatus["details"] = fmt.Sprintf("Database connection failed: %v", err)
+		} else {
+			dbStatus["status"] = "healthy"
+			dbStatus["details"] = "PostgreSQL connection successful"
+			healthyCount++
+		}
+	} else {
+		dbStatus["status"] = "error"
+		dbStatus["details"] = "Database not initialized"
+	}
+	services["database"] = dbStatus
+
+	// Check Email Configuration
+	totalServices++
+	emailStatus := map[string]interface{}{
+		"name":    "Email Service",
+		"status":  "unknown",
+		"details": "",
+	}
+
+	emailProvider := envValues["EMAIL_PROVIDER"]
+	if emailProvider == "" {
+		emailStatus["status"] = "not_configured"
+		emailStatus["details"] = "No email provider configured"
+		missingComponents = append(missingComponents, "Email Provider")
+	} else if emailProvider == "smtp" {
+		if envValues["SMTP_HOST"] != "" && envValues["SMTP_PORT"] != "" &&
+			envValues["SMTP_USERNAME"] != "" && envValues["SMTP_PASSWORD"] != "" {
+			// Test SMTP connection
+			emailConfig := &config.EmailConfig{
+				Provider: "smtp",
+				SMTP: config.SMTPConfig{
+					Host:     envValues["SMTP_HOST"],
+					Username: envValues["SMTP_USERNAME"],
+					Password: envValues["SMTP_PASSWORD"],
+				},
+			}
+			if port, err := strconv.Atoi(envValues["SMTP_PORT"]); err == nil {
+				emailConfig.SMTP.Port = port
+			}
+
+			emailClient := email.NewClient(emailConfig)
+			if err := emailClient.TestConnection(); err != nil {
+				emailStatus["status"] = "error"
+				emailStatus["details"] = fmt.Sprintf("SMTP connection failed: %v", err)
+			} else {
+				emailStatus["status"] = "healthy"
+				emailStatus["details"] = fmt.Sprintf("SMTP connection to %s:%s successful", envValues["SMTP_HOST"], envValues["SMTP_PORT"])
+				healthyCount++
+			}
+		} else {
+			emailStatus["status"] = "misconfigured"
+			emailStatus["details"] = "SMTP provider selected but missing required configuration"
+			missingComponents = append(missingComponents, "SMTP Configuration")
+		}
+	} else {
+		emailStatus["status"] = "not_implemented"
+		emailStatus["details"] = fmt.Sprintf("Email provider '%s' not yet implemented", emailProvider)
+		missingComponents = append(missingComponents, fmt.Sprintf("%s Email Implementation", emailProvider))
+	}
+	services["email"] = emailStatus
+
+	// Check AI/Template Configuration
+	totalServices++
+	aiStatus := map[string]interface{}{
+		"name":    "Letter Generation Method",
+		"status":  "unknown",
+		"details": "",
+	}
+
+	generationMethod := envValues["LETTER_GENERATION_METHOD"]
+	if generationMethod == "" {
+		generationMethod = "ai" // default
+	}
+
+	if generationMethod == "ai" {
+		aiProvider := envValues["AI_PROVIDER"]
+		if aiProvider == "" {
+			aiStatus["status"] = "not_configured"
+			aiStatus["details"] = "AI generation selected but no provider configured"
+			missingComponents = append(missingComponents, "AI Provider")
+		} else if aiProvider == "openai" && envValues["OPENAI_API_KEY"] != "" {
+			aiStatus["status"] = "not_implemented"
+			aiStatus["details"] = "OpenAI API key configured but client not implemented"
+			missingComponents = append(missingComponents, "OpenAI Client Implementation")
+		} else if aiProvider == "anthropic" && envValues["ANTHROPIC_API_KEY"] != "" {
+			aiStatus["status"] = "not_implemented"
+			aiStatus["details"] = "Anthropic API key configured but client not implemented"
+			missingComponents = append(missingComponents, "Anthropic Client Implementation")
+		} else {
+			aiStatus["status"] = "misconfigured"
+			aiStatus["details"] = fmt.Sprintf("AI provider '%s' selected but API key missing", aiProvider)
+			missingComponents = append(missingComponents, fmt.Sprintf("%s API Key", aiProvider))
+		}
+	} else if generationMethod == "templates" {
+		templateDir := envValues["TEMPLATE_DIRECTORY"]
+		if templateDir == "" {
+			templateDir = "templates/"
+		}
+		aiStatus["status"] = "not_implemented"
+		aiStatus["details"] = fmt.Sprintf("Template generation configured (dir: %s) but not implemented", templateDir)
+		missingComponents = append(missingComponents, "Template Engine Implementation")
+	}
+	services["ai"] = aiStatus
+
+	// Check Representative Lookup
+	totalServices++
+	repsStatus := map[string]interface{}{
+		"name":    "Representative Lookup",
+		"status":  "unknown",
+		"details": "",
+	}
+
+	if envValues["OPENSTATES_API_KEY"] != "" {
+		repsStatus["status"] = "not_implemented"
+		repsStatus["details"] = "OpenStates API key configured but client not implemented"
+		missingComponents = append(missingComponents, "OpenStates Client Implementation")
+	} else {
+		repsStatus["status"] = "not_configured"
+		repsStatus["details"] = "No representative lookup API configured"
+		missingComponents = append(missingComponents, "Representative API")
+	}
+	services["representatives"] = repsStatus
+
+	// Check Geocoding Service
+	totalServices++
+	geoStatus := map[string]interface{}{
+		"name":    "Geocoding Service",
+		"status":  "unknown",
+		"details": "",
+	}
+
+	if geocoderInstance != nil {
+		geoStatus["status"] = "healthy"
+		geoStatus["details"] = "ZIP code geocoding service initialized"
+		healthyCount++
+	} else {
+		geoStatus["status"] = "error"
+		geoStatus["details"] = "Geocoding service not initialized"
+	}
+	services["geocoding"] = geoStatus
+
+	// Check Scheduler
+	totalServices++
+	schedulerStatus := map[string]interface{}{
+		"name":    "Scheduler",
+		"status":  "not_implemented",
+		"details": "Automated scheduling not yet implemented",
+	}
+	missingComponents = append(missingComponents, "Scheduler Implementation")
+	services["scheduler"] = schedulerStatus
+
+	// Check User Configuration
+	totalServices++
+	userStatus := map[string]interface{}{
+		"name":    "User Configuration",
+		"status":  "unknown",
+		"details": "",
+	}
+
+	if envValues["USER_NAME"] != "" && envValues["USER_EMAIL"] != "" && envValues["USER_ZIP_CODE"] != "" {
+		userStatus["status"] = "healthy"
+		userStatus["details"] = "User information configured"
+		healthyCount++
+	} else {
+		userStatus["status"] = "incomplete"
+		userStatus["details"] = "Missing required user information (name, email, or ZIP code)"
+		missingComponents = append(missingComponents, "User Information")
+	}
+	services["user_config"] = userStatus
+
+	// Update summary
+	status["missing_components"] = missingComponents
+	status["summary"] = map[string]interface{}{
+		"healthy_services":      healthyCount,
+		"total_services":        totalServices,
+		"completion_percentage": int((float64(healthyCount) / float64(totalServices)) * 100),
+		"ready_for_operation":   len(missingComponents) == 0 && healthyCount == totalServices,
+	}
+
+	// Set overall status
+	if len(missingComponents) > 0 {
+		status["overall_status"] = "incomplete"
+	} else if healthyCount < totalServices {
+		status["overall_status"] = "degraded"
+	} else {
+		status["overall_status"] = "healthy"
+	}
+
+	json.NewEncoder(w).Encode(status)
 }
