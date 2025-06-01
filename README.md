@@ -233,7 +233,7 @@ For detailed development setup, API documentation, and technical guidelines, see
 
 ## License
 
-GPL v3 License - see LICENSE file for details
+GPL v3 License - see [License File](LICENSE) for details
 
 ## Acknowledgments
 
