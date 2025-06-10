@@ -332,6 +332,8 @@ func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Confi
 			"TEMPLATE_DIRECTORY":         getEnvFileStatus(envValues, "TEMPLATE_DIRECTORY"),
 			"TEMPLATE_ROTATION_STRATEGY": getEnvFileStatus(envValues, "TEMPLATE_ROTATION_STRATEGY"),
 			"TEMPLATE_PERSONALIZE":       getEnvFileStatus(envValues, "TEMPLATE_PERSONALIZE"),
+			"DOCKER_IMAGE":               getEnvFileStatus(envValues, "DOCKER_IMAGE"),
+			"CENSUS_BUREAU_URL":          getEnvFileStatus(envValues, "CENSUS_BUREAU_URL"),
 		},
 		"configuration_status": map[string]interface{}{
 			"user_configured":            freshCfg.User.Name != "" && freshCfg.User.Email != "" && freshCfg.User.ZipCode != "",
@@ -702,6 +704,12 @@ func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 		"POSTGRES_PORT":     existingEnv["POSTGRES_PORT"],
 		"ZIP_DATA_UPDATE":   existingEnv["ZIP_DATA_UPDATE"],
 		"DATABASE_URL":      existingEnv["DATABASE_URL"],
+	})
+
+	// Advanced Configuration (not exposed in web UI)
+	writeEnvSection(&envContent, "Advanced Configuration", map[string]string{
+		"DOCKER_IMAGE":      existingEnv["DOCKER_IMAGE"],
+		"CENSUS_BUREAU_URL": existingEnv["CENSUS_BUREAU_URL"],
 	})
 
 	writeEnvSection(&envContent, "Server", map[string]string{
