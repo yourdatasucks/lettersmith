@@ -241,6 +241,14 @@ async function loadConfiguration() {
         document.getElementById('postgres-db').value = envValues.POSTGRES_DB || 'lettersmith';
         document.getElementById('postgres-port').value = envValues.POSTGRES_PORT || '5432';
         
+        // Handle ZIP data update setting
+        const zipDataUpdate = envValues.ZIP_DATA_UPDATE;
+        if (zipDataUpdate !== undefined) {
+            document.getElementById('zip-data-update').checked = zipDataUpdate === 'true';
+        } else {
+            document.getElementById('zip-data-update').checked = true; // default
+        }
+        
         // Handle password field with the same pattern as other password fields
         const passwordField = document.getElementById('postgres-password');
         if (envValues.POSTGRES_PASSWORD && envValues.POSTGRES_PASSWORD === '••••••••') {
@@ -438,7 +446,8 @@ async function saveConfiguration() {
                 user: document.getElementById('postgres-user').value.trim(),
                 password: document.getElementById('postgres-password').value.trim(),
                 db: document.getElementById('postgres-db').value.trim(),
-                port: parseInt(document.getElementById('postgres-port').value) || 5432
+                port: parseInt(document.getElementById('postgres-port').value) || 5432,
+                zip_data_update: document.getElementById('zip-data-update').checked
                 // Note: DATABASE_URL is constructed by the backend from these fields
             },
             user: {

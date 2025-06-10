@@ -56,6 +56,14 @@
                     <input type="text" id="database-url" name="database-url" placeholder="postgres://user:••••••••@host:port/db?sslmode=disable" readonly>
                     <small>This connection string is automatically constructed by the backend from the fields above (password masked for security)</small>
                 </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="zip-data-update" name="zip-data-update" checked>
+                        Update ZIP code geocoding data on startup
+                    </label>
+                    <small>Downloads latest ZIP code coordinates from US Census Bureau for representative lookup (recommended for new installations)</small>
+                </div>
             </section>
 
             <section class="config-section">

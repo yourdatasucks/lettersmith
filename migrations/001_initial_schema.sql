@@ -43,10 +43,7 @@ CREATE TABLE IF NOT EXISTS letters (
     email_provider VARCHAR(50), -- smtp, sendgrid, mailgun
     email_status VARCHAR(50) DEFAULT 'pending', -- pending, sent, failed
     email_error TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_letters_user_id (user_id),
-    INDEX idx_letters_sent_at (sent_at),
-    INDEX idx_letters_status (email_status)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Configuration table (for storing app-wide settings)
@@ -76,6 +73,9 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
 
 -- Create indexes
 CREATE INDEX idx_representatives_state ON representatives(state);
+CREATE INDEX idx_letters_user_id ON letters(user_id);
+CREATE INDEX idx_letters_sent_at ON letters(sent_at);
+CREATE INDEX idx_letters_status ON letters(email_status);
 CREATE INDEX idx_scheduled_jobs_next_run ON scheduled_jobs(next_run_at) WHERE enabled = true;
 
 -- Create updated_at trigger function

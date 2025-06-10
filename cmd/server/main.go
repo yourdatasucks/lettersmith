@@ -42,6 +42,14 @@ func main() {
 
 	log.Println("Connected to database successfully")
 
+	log.Println("Running database migrations...")
+	if err := runMigrations(db); err != nil {
+		log.Printf("Warning: Failed to run migrations: %v", err)
+		log.Println("Some features may not work without proper schema")
+	} else {
+		log.Println("Database migrations completed successfully")
+	}
+
 	// Initialize geocoding service for ZIP code to coordinates conversion
 	geocodingConfig := &geocoding.GeocodingConfig{
 		CustomCensusBureauURL: cfg.CensusBureauURL,
@@ -88,11 +96,11 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/config/debug", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
 		handleConfigDebug(w, r, cfg)
+	})
+
+	mux.HandleFunc("/api/db/debug", func(w http.ResponseWriter, r *http.Request) {
+		handleDatabaseDebug(w, r, db)
 	})
 
 	// Add system health endpoint
@@ -239,63 +247,54 @@ func handleGetConfig(w http.ResponseWriter, _ *http.Request, cfg *config.Config)
 }
 
 func handleUpdateConfig(w http.ResponseWriter, r *http.Request, _ *config.Config) {
+	w.Header().Set("Content-Type", "application/json")
+
 	var updates map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := updateEnvFile(updates); err != nil {
-		log.Printf("Error updating .env file: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Failed to update .env file",
+			"error": "Invalid JSON format",
 		})
 		return
 	}
 
-	log.Printf("Configuration updated in .env file")
+	// Get database connection for potential password updates
+	var dbConn *sql.DB
+	if cfg, err := config.Load(); err == nil {
+		dbURL := cfg.DatabaseURL()
+		if db, err := sql.Open("postgres", dbURL); err == nil {
+			dbConn = db
+			defer db.Close()
+		}
+	}
 
-	w.Header().Set("Content-Type", "application/json")
+	if err := updateEnvFile(updates, dbConn); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to update configuration: %s", err.Error()),
+		})
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "Configuration updated successfully",
 	})
 }
 
 func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Config) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Load fresh configuration from .env file to get updated values
+	freshCfg, err := config.Load()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to load configuration: %v", err),
+		})
+		return
+	}
 
 	envValues := readEnvFile()
-
-	freshCfg := &config.Config{}
-
-	if method := envValues["LETTER_GENERATION_METHOD"]; method != "" {
-		freshCfg.Letter.GenerationMethod = method
-	} else {
-		freshCfg.Letter.GenerationMethod = "ai"
-	}
-
-	if provider := envValues["AI_PROVIDER"]; provider != "" {
-		freshCfg.AI.Provider = provider
-		if provider == "openai" {
-			freshCfg.AI.OpenAI.APIKey = envValues["OPENAI_API_KEY"]
-		} else if provider == "anthropic" {
-			freshCfg.AI.Anthropic.APIKey = envValues["ANTHROPIC_API_KEY"]
-		}
-	}
-
-	if freshCfg.Letter.GenerationMethod == "templates" {
-		freshCfg.Letter.TemplateConfig = &config.TemplateConfig{
-			Directory: envValues["TEMPLATE_DIRECTORY"],
-		}
-		if freshCfg.Letter.TemplateConfig.Directory == "" {
-			freshCfg.Letter.TemplateConfig.Directory = "templates/"
-		}
-	}
-
-	freshCfg.User = cfg.User
-	freshCfg.Email = cfg.Email
-	freshCfg.Representatives = cfg.Representatives
 
 	debugInfo := map[string]interface{}{
 		"environment_variables": map[string]string{
@@ -304,6 +303,7 @@ func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Confi
 			"POSTGRES_DB":                getEnvFileStatus(envValues, "POSTGRES_DB"),
 			"POSTGRES_PORT":              getEnvFileStatus(envValues, "POSTGRES_PORT"),
 			"DATABASE_URL":               getEnvFileStatus(envValues, "DATABASE_URL"),
+			"ZIP_DATA_UPDATE":            getEnvFileStatus(envValues, "ZIP_DATA_UPDATE"),
 			"PORT":                       getEnvFileStatus(envValues, "PORT"),
 			"AI_PROVIDER":                getEnvFileStatus(envValues, "AI_PROVIDER"),
 			"OPENAI_API_KEY":             getEnvFileStatus(envValues, "OPENAI_API_KEY"),
@@ -342,7 +342,7 @@ func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Confi
 			"representatives_configured": isRepresentativesConfigured(freshCfg),
 			"validation_result":          getValidationResult(freshCfg),
 		},
-		"database_url_parsed": cfg.DatabaseURL(),
+		"database_url_parsed": freshCfg.DatabaseURL(), // Now uses fresh config with updated values
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -438,7 +438,7 @@ func readEnvFile() map[string]string {
 	return envValues
 }
 
-func updateEnvFile(updates map[string]interface{}) error {
+func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 	cwd, _ := os.Getwd()
 	log.Printf("Current working directory: %s", cwd)
 
@@ -463,17 +463,42 @@ func updateEnvFile(updates map[string]interface{}) error {
 
 	// Handle database configuration
 	if database, ok := updates["database"].(map[string]interface{}); ok {
+		oldPassword := existingEnv["POSTGRES_PASSWORD"]
+		oldUser := existingEnv["POSTGRES_USER"]
+		if oldUser == "" {
+			oldUser = "lettersmith" // default
+		}
+
+		newUser := oldUser
+		var newPassword string
+
 		if user, ok := database["user"].(string); ok && user != "" {
-			existingEnv["POSTGRES_USER"] = strings.TrimSpace(user)
+			newUser = strings.TrimSpace(user)
+			existingEnv["POSTGRES_USER"] = newUser
 		}
 		if password, ok := database["password"].(string); ok && password != "" {
-			existingEnv["POSTGRES_PASSWORD"] = strings.TrimSpace(password)
+			newPassword = strings.TrimSpace(password)
+			existingEnv["POSTGRES_PASSWORD"] = newPassword
+
+			// Automatically update database user password if it changed
+			if oldPassword != "" && oldPassword != newPassword && dbConn != nil {
+				log.Printf("Updating database password for user: %s", newUser)
+				if err := updateDatabaseUserPassword(dbConn, newUser, newPassword); err != nil {
+					log.Printf("Warning: Failed to update database user password: %v", err)
+					return fmt.Errorf("failed to update database password: %w", err)
+				} else {
+					log.Printf("Successfully updated database user password")
+				}
+			}
 		}
-		if db, ok := database["db"].(string); ok && db != "" {
-			existingEnv["POSTGRES_DB"] = strings.TrimSpace(db)
+		if dbName, ok := database["db"].(string); ok && dbName != "" {
+			existingEnv["POSTGRES_DB"] = strings.TrimSpace(dbName)
 		}
 		if port, ok := database["port"].(float64); ok && port > 0 {
 			existingEnv["POSTGRES_PORT"] = strconv.Itoa(int(port))
+		}
+		if zipDataUpdate, ok := database["zip_data_update"].(bool); ok {
+			existingEnv["ZIP_DATA_UPDATE"] = strconv.FormatBool(zipDataUpdate)
 		}
 
 		// Construct DATABASE_URL from individual components
@@ -675,6 +700,7 @@ func updateEnvFile(updates map[string]interface{}) error {
 		"POSTGRES_PASSWORD": existingEnv["POSTGRES_PASSWORD"],
 		"POSTGRES_DB":       existingEnv["POSTGRES_DB"],
 		"POSTGRES_PORT":     existingEnv["POSTGRES_PORT"],
+		"ZIP_DATA_UPDATE":   existingEnv["ZIP_DATA_UPDATE"],
 		"DATABASE_URL":      existingEnv["DATABASE_URL"],
 	})
 
@@ -1238,4 +1264,173 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 
 	json.NewEncoder(w).Encode(status)
+}
+
+func handleDatabaseDebug(w http.ResponseWriter, _ *http.Request, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if db == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Database not connected",
+		})
+		return
+	}
+
+	debugInfo := map[string]interface{}{
+		"connection_status": "connected",
+		"database_version":  "",
+		"current_database":  "",
+		"tables":            []map[string]interface{}{},
+		"total_tables":      0,
+	}
+
+	// Get PostgreSQL version
+	var version string
+	if err := db.QueryRow("SELECT version()").Scan(&version); err == nil {
+		debugInfo["database_version"] = version
+	}
+
+	// Get current database name
+	var dbName string
+	if err := db.QueryRow("SELECT current_database()").Scan(&dbName); err == nil {
+		debugInfo["current_database"] = dbName
+	}
+
+	// Get list of tables with row counts
+	query := `
+		SELECT 
+			t.table_name,
+			COALESCE(s.n_tup_ins, 0) as estimated_rows,
+			t.table_type
+		FROM information_schema.tables t
+		LEFT JOIN pg_stat_user_tables s ON t.table_name = s.relname
+		WHERE t.table_schema = 'public' 
+		ORDER BY t.table_name
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to query tables: %v", err),
+		})
+		return
+	}
+	defer rows.Close()
+
+	var tables []map[string]interface{}
+	for rows.Next() {
+		var tableName, tableType string
+		var estimatedRows int64
+
+		if err := rows.Scan(&tableName, &estimatedRows, &tableType); err != nil {
+			continue
+		}
+
+		// Get actual row count for small tables
+		var actualRows int64
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
+		if err := db.QueryRow(countQuery).Scan(&actualRows); err == nil {
+			tables = append(tables, map[string]interface{}{
+				"name":           tableName,
+				"type":           tableType,
+				"row_count":      actualRows,
+				"estimated_rows": estimatedRows,
+			})
+		} else {
+			tables = append(tables, map[string]interface{}{
+				"name":           tableName,
+				"type":           tableType,
+				"row_count":      "error",
+				"estimated_rows": estimatedRows,
+				"error":          err.Error(),
+			})
+		}
+	}
+
+	debugInfo["tables"] = tables
+	debugInfo["total_tables"] = len(tables)
+	debugInfo["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+
+	json.NewEncoder(w).Encode(debugInfo)
+}
+
+func updateDatabaseUserPassword(db *sql.DB, newUser string, newPassword string) error {
+	query := fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s'", newUser, newPassword)
+	if _, err := db.Exec(query); err != nil {
+		return fmt.Errorf("failed to update database user password: %w", err)
+	}
+	return nil
+}
+
+// runMigrations executes all SQL migration files in order
+func runMigrations(db *sql.DB) error {
+	// Create migrations table to track which migrations have been applied
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version VARCHAR(255) PRIMARY KEY,
+			applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create migrations table: %w", err)
+	}
+
+	// Create the update_updated_at_column function if it doesn't exist
+	_, err = db.Exec(`
+		CREATE OR REPLACE FUNCTION update_updated_at_column()
+		RETURNS TRIGGER AS $$
+		BEGIN
+			NEW.updated_at = CURRENT_TIMESTAMP;
+			RETURN NEW;
+		END;
+		$$ language 'plpgsql';
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create update function: %w", err)
+	}
+
+	// List of migration files in order
+	migrations := []string{
+		"001_initial_schema.sql",
+		"002_zip_coordinates.sql",
+	}
+
+	for _, migration := range migrations {
+		// Check if migration has already been applied
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = $1", migration).Scan(&count)
+		if err != nil {
+			return fmt.Errorf("failed to check migration status for %s: %w", migration, err)
+		}
+
+		if count > 0 {
+			log.Printf("Migration %s already applied, skipping", migration)
+			continue
+		}
+
+		// Read and execute migration file
+		log.Printf("Applying migration: %s", migration)
+		content, err := os.ReadFile(fmt.Sprintf("migrations/%s", migration))
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", migration, err)
+		}
+
+		// Execute migration
+		_, err = db.Exec(string(content))
+		if err != nil {
+			return fmt.Errorf("failed to execute migration %s: %w", migration, err)
+		}
+
+		// Record that migration was applied
+		_, err = db.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", migration)
+		if err != nil {
+			return fmt.Errorf("failed to record migration %s: %w", migration, err)
+		}
+
+		log.Printf("Successfully applied migration: %s", migration)
+	}
+
+	return nil
 }
