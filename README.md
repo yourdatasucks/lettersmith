@@ -4,15 +4,25 @@ A containerized Go application that uses AI to generate and send unique letters 
 
 ## Features
 
-- 🤖 AI-powered letter generation using OpenAI or Anthropic
-- 📧 Automated daily email sending to representatives
-- 🔍 Privacy-respecting representative lookup via ProPublica, OpenStates, and USA.gov APIs
-- 🐳 Fully containerized with Docker Compose
-- 🌐 Web UI for easy configuration
-- 📊 PostgreSQL database for tracking sent letters
-- 🔧 Smart configuration management with persistence
-- 🔒 Privacy-first: Minimal data collection (only name, email, and ZIP code)
-- ✅ Visual indicators for configured API keys and credentials
+### ✅ Working Features
+- 🔍 **Representative lookup** via OpenStates API integration
+- 🐳 **Fully containerized** with Docker Compose
+- 🌐 **Web UI** for configuration and system monitoring
+- 📊 **PostgreSQL database** with automatic migrations on startup
+- 🔧 **Smart configuration management** with web UI persistence
+- 🔒 **Privacy-first design**: Minimal data collection (only name, email, ZIP code)
+- ✅ **System status dashboard** with real-time health checks
+- 🗺️ **ZIP code to coordinates conversion** using US Census Bureau data
+- 📧 **Email configuration** and testing (SMTP/SendGrid/Mailgun)
+
+### 🔧 In Development
+- 🤖 **AI letter generation** (OpenAI/Anthropic client interfaces exist, functionality in progress)
+
+### 📋 Planned Features  
+- 📧 **Automated daily email sending** to representatives
+- 📝 **Template-based letter generation** as alternative to AI
+- 📈 **Letter history and audit trail**
+- ⏰ **Scheduler** for automated sending
 
 ## Quick Start
 
@@ -37,15 +47,44 @@ docker compose up -d
 ```
 
 **Docker Image Versions:**
-- `latest` - Latest stable release (recommended)
-- `dev` - Development version with latest features
-- `v1.0.0` - Specific version tags
+- `ghcr.io/yourdatasucks/lettersmith:latest` - Latest stable release
+- `ghcr.io/yourdatasucks/lettersmith:dev` - Latest development version  
+- `ghcr.io/yourdatasucks/lettersmith:v1.0.0` - Specific version releases
+
+**Note:** Docker Compose automatically uses the image specified in your `.env` file (`DOCKER_IMAGE` variable).
 
 4. Open http://localhost:8080 in your browser to configure the application
 
 5. Fill in your information and API keys, then click "Save Configuration"
 
 **That's it!** The web UI will update your `.env` file automatically and persist your configuration across container restarts.
+
+### 🚀 Current Implementation Status
+
+**✅ Ready to Use:**
+- Complete system configuration and monitoring
+- Representative lookup and management (OpenStates integration)
+- Email configuration and testing  
+- ZIP code geocoding system
+- Full web interface with real-time status
+
+**🔧 Next: AI Letter Generation**  
+The foundation is complete! AI letter generation is the primary development focus to enable automated advocacy.
+
+### 🎯 Key Web Interface Features
+
+Once configured, explore these interfaces:
+
+- **📊 System Status** (`/status.html`) - Real-time health monitoring of all services
+- **👥 Representatives** (`/representatives.html`) - Manage your representatives data
+- **⚙️ Configuration** (`/`) - Update settings and test email configuration
+
+The system status dashboard shows the health of:
+- ✅ Database connectivity  
+- ✅ Email configuration
+- ✅ AI provider setup (when configured)
+- ✅ ZIP geocoding service
+- ✅ Representatives API integration
 
 ## Configuration
 
@@ -56,17 +95,17 @@ Lettersmith uses a **simple, user-friendly configuration system**:
 
 ### 🎯 For Most Users: Use the Web UI
 
-The web interface is designed to be **noob-friendly** and handles all the technical details:
+The web interface is designed to be **user friendly** and handles all the technical details:
 
 1. Navigate to http://localhost:8080
 2. Fill in the required fields:
    - **User Information**: Your name, email, and ZIP code
    - **Letter Generation** — Choose your method:
    
-   | Generation Method | How it Works | What You Need | Best For |
-   |-------------------|--------------|---------------|----------|
-   | **AI-Powered** | Creates unique letters using ChatGPT/Claude | API key ($) | Personalized, varied content |
-   | **Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs |
+   | Generation Method | How it Works | What You Need | Best For | Status |
+   |-------------------|--------------|---------------|----------|---------|
+   | **AI-Powered** | Creates unique letters using OpenAI/Anthropic | API key ($) | Personalized, varied content | 🔧 Client interfaces exist, functionality in progress |
+   | **Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs | 📋 Planned feature |
    
    - **Email Provider**: Configure SMTP, SendGrid, or Mailgun
    - **Representative APIs**: Add API keys for OpenStates
@@ -79,7 +118,7 @@ The web interface is designed to be **noob-friendly** and handles all the techni
 - 💾 Configuration persists across container restarts
 - 🚀 Ready to run immediately
 
-### 🤓 For Advanced Users: Direct .env Editing
+### For Advanced Users: Direct .env Editing
 
 For manual configuration or if you prefer to pre-populate your settings:
 
@@ -143,19 +182,24 @@ The web UI reads from and writes to your `.env` file, making it both beginner-fr
 
 ## Privacy-First Design
 
-This application practices data minimization:
-- **No phone numbers** collected
+This application practices data minimization and transparency:
+- **Minimal data collection**: Only name, email, and ZIP code required
+- **No phone numbers** collected or stored
 - **No street addresses** stored
 - **No tracking or analytics**
-- Only ZIP code used for representative lookup
-- All data stays in your self-hosted database
-- Recommends privacy-focused email providers (ProtonMail)
+- **Self-hosted**: All data stays in your own PostgreSQL database
+- **Transparent processing**: ZIP code converted to coordinates for representative lookup only
+- **Privacy-focused recommendations**: Supports ProtonMail and other privacy-focused email providers
+- **Open source**: All code is auditable for transparency
 
 ## Representative Lookup APIs
 
-The project uses privacy-respecting APIs:
+The project uses the OpenStates API for privacy-respecting representative data:
 
-- **OpenStates API**: State legislature data (free tier available)
+- **OpenStates API**: State and federal legislature data (free tier available)
+  - Get your free API key at [openstates.org/api/](https://openstates.org/api/)
+  - Covers all US states and federal representatives
+  - Uses geographic coordinates for precise district matching
 
 ### ZIP Code to Coordinates Conversion
 
@@ -191,24 +235,27 @@ This ensures reliable ZIP-to-coordinate conversion without external API dependen
 ```
 lettersmith/
 ├── cmd/
-│   ├── server/          # Main application server
-│   └── migrate/         # Database migration tool
+│   ├── server/          # Main application server ✅
+│   │   └── main.go      # HTTP server with automatic migrations
+│   └── migrate/         # Database migration tool ✅ (optional - migrations auto-run on startup)
 ├── internal/
-│   ├── config/          # Environment variable configuration
-│   ├── api/             # AI provider interfaces
-│   ├── email/           # Email sending logic
-│   ├── reps/            # Representative lookup
-│   ├── scheduler/       # Daily job runner
-│   └── web/             # Configuration web UI handlers
-├── web/                 # Frontend static files
-│   ├── index.html       # Configuration UI
-│   ├── style.css        # Modern, privacy-focused styling
-│   └── app.js           # Frontend logic with .env management
-├── migrations/          # SQL migration files
-├── docker-compose.yml   # Docker Compose configuration
-├── Dockerfile           # Multi-stage build (final image: 16.3MB)
-├── env.example          # Example environment variables
-└── .env                 # Your configuration (created by web UI)
+│   ├── config/          # Environment variable configuration ✅
+│   ├── api/             # AI provider interfaces 🔧 (clients exist, functionality in progress)
+│   ├── email/           # Email sending logic ✅
+│   ├── reps/            # Representative lookup ✅ (OpenStates integration)
+│   ├── geocoding/       # ZIP to coordinates conversion ✅ (US Census Bureau)
+│   └── scheduler/       # Daily job runner 📋 (planned)
+├── web/                 # Frontend static files ✅
+│   ├── index.html       # Configuration UI ✅
+│   ├── status.html      # System status dashboard ✅
+│   ├── representatives.html # Representatives management ✅
+│   ├── style.css        # Modern, privacy-focused styling ✅
+│   └── app.js           # Frontend logic with .env management ✅
+├── migrations/          # SQL migration files ✅ (auto-applied on startup)
+├── docker-compose.yml   # Docker Compose configuration ✅
+├── Dockerfile           # Multi-stage build ✅ (final image: <20MB)
+├── env.example          # Example environment variables ✅
+└── .env                 # Your configuration (created/managed by web UI) ✅
 ```
 
 ## Docker Commands
@@ -246,10 +293,44 @@ We welcome contributions to Lettersmith! This project is built with privacy as a
 
 ### Quick Start for Contributors
 
-1. Check out the **[Development Guide](DEVELOPMENT.md)** for detailed setup instructions
-2. Fork the repository and create a feature branch
-3. Follow our coding standards and add tests for new features
-4. Open a pull request with a clear description of your changes
+1. **Fork the repository** on GitHub
+2. **Choose your development approach** (see [DEVELOPMENT.md](DEVELOPMENT.md) for details):
+   - **Option A**: Use pre-built dev image (easiest for most contributors)
+   - **Option B**: Build locally with Docker
+   - **Option C**: Native Go development (fastest for active development)
+3. **Create a feature branch** from `dev`: `git checkout -b feature/amazing-feature dev`
+4. **Make your changes** following our coding standards
+5. **Submit a PR** to the `dev` branch
+
+### Development Environment Options
+
+**For Most Contributors (Option A):**
+```bash
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+git checkout dev
+./init-env.sh
+docker compose up -d  # Uses ghcr.io/yourdatasucks/lettersmith:dev
+```
+
+**For Docker Development (Option B):**
+```bash
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+./init-env.sh
+docker build -t lettersmith:local .
+export DOCKER_IMAGE=lettersmith:local
+docker compose up -d
+```
+
+**For Native Go Development (Option C):**
+```bash
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+createdb lettersmith
+export DATABASE_URL="postgres://localhost/lettersmith?sslmode=disable"
+go run cmd/server/main.go  # Migrations run automatically on startup
+```
 
 ### Development Guidelines
 
@@ -257,6 +338,9 @@ We welcome contributions to Lettersmith! This project is built with privacy as a
 - **User-Friendly**: Keep the web UI simple and accessible
 - **Documentation**: Update both user and developer documentation
 - **Testing**: Maintain good test coverage for reliability
+- **Go Standards**: Use `go fmt`, `go vet`, and add tests for new features
+
+**Next Priority:** AI letter generation functionality is the primary development focus.
 
 For detailed development setup, API documentation, and technical guidelines, see [DEVELOPMENT.md](DEVELOPMENT.md).
 

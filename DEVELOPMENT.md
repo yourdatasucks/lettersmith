@@ -12,21 +12,23 @@ This guide covers development setup, API details, and contribution guidelines fo
 
 ### Local Development
 
-**Option A: Docker Development (Recommended)**
+For local development, see the [Development Workflow](#development-workflow) section below which covers contributor setup options in detail.
+
+**Quick Start (Docker):**
 ```bash
-# Clone and setup
-git clone https://github.com/yourusername/lettersmith.git
+# Clone the repository
+git clone https://github.com/yourdatasucks/lettersmith.git
 cd lettersmith
 ./init-env.sh
 
-# Start with hot reload
-docker compose -f docker-compose.dev.yml up -d
+# Start with Docker (uses dev image by default)
+docker compose up -d
 
 # View logs
 docker compose logs -f app
 ```
 
-**Option B: Native Go Development**
+**Quick Start (Native Go):**
 ```bash
 # Install dependencies
 go mod download
@@ -35,17 +37,8 @@ go mod download
 createdb lettersmith
 export DATABASE_URL="postgres://localhost/lettersmith?sslmode=disable"
 
-# Run migrations
-go run cmd/migrate/main.go
-
-# Run the server
+# Run server (migrations run automatically on startup)
 go run cmd/server/main.go
-
-# Run tests
-go test -v ./...
-
-# Format code
-go fmt ./...
 ```
 
 ### Building
@@ -185,12 +178,116 @@ Test email configuration.
 }
 ```
 
-### Planned Endpoints
+#### `GET /api/system/status`
+Comprehensive system health check.
 
-- `POST /api/letters/generate` - Generate a test letter
-- `POST /api/letters/send` - Manually trigger letter sending
-- `GET /api/letters/history` - View sent letters
-- `GET /api/representatives` - List found representatives
+**Response:**
+```json
+{
+  "status": "operational",
+  "checks": {
+    "database": { "status": "healthy", "message": "Connected to PostgreSQL" },
+    "email": { "status": "healthy", "message": "SMTP configuration valid" },
+    "ai": { "status": "warning", "message": "AI providers configured but not functional" },
+    "geocoding": { "status": "healthy", "message": "ZIP geocoding operational" },
+    "representatives": { "status": "healthy", "message": "OpenStates API operational" }
+  },
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+#### `GET /api/db/debug`
+Database debug information and connection status.
+
+### Planned Endpoints (Not Yet Implemented)
+
+- `POST /api/letters/generate` - Generate a test letter using AI
+- `POST /api/letters/send` - Manually send letters to representatives
+- `GET /api/letters/history` - View sent letters and audit trail
+- `POST /api/scheduler/trigger` - Manually trigger scheduled letter sending
+- `GET /api/scheduler/status` - Check scheduled job status
+
+### Representatives Endpoints (✅ Implemented)
+
+#### `GET /api/representatives`
+Get representatives for the user's ZIP code from local database.
+
+**Response:**
+```json
+{
+  "zip_code": "29414",
+  "representatives": [
+    {
+      "id": 1,
+      "name": "Tim Scott",
+      "title": "Senator",
+      "state": "SC",
+      "district": "South Carolina",
+      "party": "Republican",
+      "email": null,
+      "phone": null,
+      "office_address": null,
+      "website": null,
+      "external_id": "ocd-person/...",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "count": 5
+}
+```
+
+#### `POST /api/representatives`
+Sync representatives from OpenStates API for the user's ZIP code.
+
+**Response:**
+```json
+{
+  "status": "Representatives synced successfully",
+  "zip_code": "29414",
+  "representatives": [...],
+  "count": 5
+}
+```
+
+#### `PUT /api/representatives/{id}`
+Update representative information.
+
+**Request:**
+```json
+{
+  "name": "Updated Name",
+  "email": "updated@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "Representative updated successfully"
+}
+```
+
+#### `DELETE /api/representatives/{id}`
+Delete a representative from the database.
+
+**Response:**
+```json
+{
+  "status": "Representative deleted successfully"
+}
+```
+
+#### `GET /api/test/representatives`
+Test OpenStates API directly (returns raw API response for debugging).
+
+**Response:**
+```json
+{
+  "results": [...],
+  "pagination": {...}
+}
+```
 
 ## Project Structure
 
@@ -198,39 +295,45 @@ Test email configuration.
 lettersmith/
 ├── cmd/
 │   ├── server/          # Main application server
-│   │   └── main.go      # HTTP server, config handlers
-│   └── migrate/         # Database migration tool
+│   │   └── main.go      # HTTP server, config handlers, representatives APIs
+│   └── migrate/         # Database migration tool ✅ IMPLEMENTED
+│       └── main.go      # SQL migration runner for PostgreSQL
 ├── internal/
 │   ├── config/          # Environment variable configuration
 │   │   └── config.go    # Config structs and loading
 │   ├── api/             # AI provider interfaces
-│   │   ├── openai.go    # OpenAI API client
-│   │   └── anthropic.go # Anthropic API client
+│   │   ├── client.go    # Common AI interface
+│   │   ├── openai.go    # OpenAI API client (placeholder)
+│   │   ├── anthropic.go # Anthropic API client (placeholder)
+│   │   └── utils.go     # Utility functions
 │   ├── email/           # Email sending logic
-│   │   ├── client.go    # Email client interface
-│   │   ├── smtp.go      # SMTP implementation
-│   │   ├── sendgrid.go  # SendGrid implementation
-│   │   └── mailgun.go   # Mailgun implementation
-│   ├── reps/            # Representative lookup
-│   │   ├── openstates.go # OpenStates API
-│   │   └── civicinfo.go # Google Civic Info API
-│   ├── scheduler/       # Daily job runner
-│   │   └── scheduler.go # Cron-like scheduler
-│   └── web/             # Web UI handlers (if any backend logic)
+│   │   └── client.go    # SMTP email client
+│   ├── reps/            # Representative lookup ✅ IMPLEMENTED
+│   │   ├── types.go     # Representative structs and OpenStates API types
+│   │   └── service.go   # CRUD operations and OpenStates integration
+│   ├── geocoding/       # ZIP code to coordinates conversion ✅ IMPLEMENTED
+│   │   ├── geocoding.go # Main geocoding service
+│   │   ├── datasources.go # US Census Bureau data loading
+│   │   └── openstates.go # OpenStates API integration
+│   └── scheduler/       # Daily job runner (planned)
+│       └── scheduler.go # Cron-like scheduler
 ├── web/                 # Frontend static files
 │   ├── index.html       # Configuration UI
+│   ├── status.html      # System status dashboard  
+│   ├── representatives.html # Representatives management interface ✅
 │   ├── style.css        # Modern, privacy-focused styling
 │   └── app.js           # Frontend logic with .env management
 ├── migrations/          # SQL migration files
-│   ├── 001_init.sql     # Initial schema
-│   └── 002_letters.sql  # Letters table
-├── docker-compose.yml   # Production Docker Compose
-├── docker-compose.dev.yml # Development Docker Compose
+│   ├── 001_initial_schema.sql # Initial schema with representatives table
+│   └── 002_zip_coordinates.sql # ZIP coordinates table
+├── docker-compose.yml   # Docker Compose for development and production
 ├── Dockerfile           # Multi-stage build
 ├── env.example          # Example environment variables
 ├── .env                 # Your configuration (gitignored)
 ├── README.md            # User-facing documentation
-└── DEVELOPMENT.md       # This file
+├── DEVELOPMENT.md       # This file
+├── IMPLEMENTATION_PLAN.md # Implementation roadmap
+└── EMAIL_SETUP_GUIDE.md # Email provider setup guide
 ```
 
 ## Configuration Details
@@ -265,12 +368,16 @@ lettersmith/
 - Reliable for transactional email
 - Free tier: 5,000 emails/month for 3 months
 
-### Letter Customization
+### Letter Customization (Planned)
+
+**Note**: Letter generation is not yet implemented. These are planned features:
 
 - **Tone Options**: professional, passionate, conversational, urgent
 - **Max Length**: 100-2000 words (default: 500)
 - **Themes**: Privacy rights, consumer protection, data transparency, corporate accountability
 - **Template Variables**: {{name}}, {{zip_code}}, {{representative_name}}, {{state}}
+
+For current implementation status, see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Testing
 
@@ -288,6 +395,10 @@ go test -v ./internal/config
 
 # Run integration tests (requires database)
 go test -v -tags=integration ./...
+
+# Format and vet code
+go fmt ./...
+go vet ./...
 ```
 
 ### Test Email Configuration
@@ -304,31 +415,16 @@ curl -X POST http://localhost:8080/api/config/test-email \
 # Navigate to configuration page and click "Test Email"
 ```
 
-## Contributing
+## Contributing Guidelines
 
-### Development Workflow
+For the complete development workflow, see the [Development Workflow](#development-workflow) section below.
 
-1. **Fork the repository**
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Make your changes**
-   - Follow Go best practices
-   - Add tests for new features
-   - Update documentation
-4. **Test your changes**
-   ```bash
-   go test -v ./...
-   go fmt ./...
-   go vet ./...
-   ```
-5. **Commit and push**
-   ```bash
-   git commit -m 'Add amazing feature'
-   git push origin feature/amazing-feature
-   ```
-6. **Open a Pull Request**
+**Quick contributing steps:**
+1. Fork the repository and clone your fork
+2. Follow one of the development setup options in [Development Workflow](#development-workflow)
+3. Create a feature branch from `dev`: `git checkout -b feature/amazing-feature dev`
+4. Make your changes following the code standards below
+5. Test your changes and submit a PR to the `dev` branch
 
 ### Code Standards
 
@@ -418,84 +514,165 @@ go run cmd/server/main.go
 
 Or in Docker:
 ```yaml
-# docker-compose.dev.yml
+# docker-compose.yml
 environment:
   - LOG_LEVEL=debug
 ```
 
-## Release Process
+## Development Workflow
 
-Lettersmith uses semantic versioning (semver) for releases with an automated CI/CD pipeline.
+### For Contributors
 
-### Version Tags
+Contributors have several options for development. The `DOCKER_IMAGE` environment variable in `.env` controls which Docker image is used (defaults to a test image, but can be overridden):
 
-- **`latest`** - Latest stable release from main branch
-- **`dev`** - Latest development build from dev branch  
-- **`v1.2.3`** - Specific semantic version releases
-- **`v1.2`** - Latest patch version for minor release
-- **`v1`** - Latest minor version for major release
-
-### Creating a Release
-
-1. **Ensure you're on main branch with clean working directory**
-2. **Use the release script**:
-   ```bash
-   ./scripts/release.sh
-   ```
-3. **Choose version bump type**:
-   - **Patch** (v1.0.1) - Bug fixes, no new features
-   - **Minor** (v1.1.0) - New features, backward compatible
-   - **Major** (v2.0.0) - Breaking changes
-   - **Custom** - For pre-releases like v1.0.0-beta.1
-
-4. **The script will**:
-   - Generate changelog from git commits
-   - Create and push git tag
-   - Trigger GitHub Actions build
-   - Create GitHub release automatically
-
-### Manual Release Process
-
-If you prefer manual control:
-
+**Option A: Use Pre-built Dev Image (Easiest)**
 ```bash
-# Ensure clean state
-git checkout main
-git pull origin main
+# Fork the repo on GitHub, then clone your fork
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+git checkout dev
+./init-env.sh
 
-# Create and push tag
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-
-# GitHub Actions will handle the rest
+# Uses dev image by default (DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:dev)
+docker compose up -d
 ```
 
-### Docker Image Publishing
+**Option B: Local Docker Build**
+```bash
+# Clone your fork  
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+./init-env.sh
 
-GitHub Actions automatically publishes images to GitHub Container Registry:
+# Build locally instead of pulling from registry
+docker build -t lettersmith:local .
 
-- **Dev builds**: `ghcr.io/yourdatasucks/lettersmith:dev`
-- **Main builds**: `ghcr.io/yourdatasucks/lettersmith:latest`  
-- **Tagged releases**: `ghcr.io/yourdatasucks/lettersmith:v1.0.0`
+# Override the .env file setting (temporary for this session)
+export DOCKER_IMAGE=lettersmith:local
+docker compose up -d
+
+# Note: .env file has DOCKER_IMAGE=lettersmith-test:latest by default
+# Your export temporarily overrides this setting
+```
+
+**Option C: Native Go Development**
+```bash
+# Clone your fork
+git clone https://github.com/YOUR-USERNAME/lettersmith.git
+cd lettersmith
+
+# Run natively (requires Go + PostgreSQL)
+go mod download
+createdb lettersmith
+export DATABASE_URL="postgres://localhost/lettersmith?sslmode=disable"
+go run cmd/server/main.go
+# Note: Database migrations run automatically on server startup
+```
+
+**Which option should I choose?**
+- **Option A**: Best for most contributors - uses stable dev environment, no local building
+- **Option B**: Good when you need to test Docker-specific changes or custom builds  
+- **Option C**: Fastest for active development and debugging Go code
+
+**Contributing workflow:**
+1. Fork the repository on GitHub
+2. Clone your fork locally  
+3. Create feature branch from `dev`: `git checkout -b feature/my-feature dev`
+4. Make changes and test using one of the options above
+5. Push to your fork: `git push origin feature/my-feature`
+6. Submit PR from your fork's feature branch to main repo's `dev` branch
+7. After merge, main repo CI builds and publishes new `ghcr.io/yourdatasucks/lettersmith:dev`
+
+### Docker Image Tags
+
+The main repository CI/CD system automatically publishes:
+- **`ghcr.io/yourdatasucks/lettersmith:dev`** - Latest dev branch (updated when dev branch changes)
+- **`ghcr.io/yourdatasucks/lettersmith:latest`** - Latest stable release from main branch
+- **`ghcr.io/yourdatasucks/lettersmith:v1.0.0`** - Specific version releases
+
+**Note**: Contributor forks don't automatically publish to GHCR. Contributors should use Option A (pre-built dev image), Option B (local build), or Option C (native development) above.
 
 ### Using Different Versions
 
-**In docker-compose.yml**:
-```yaml
-services:
-  app:
-    # Use latest stable
-    image: ghcr.io/yourdatasucks/lettersmith:latest
-    
-    # Or use development version
-    # image: ghcr.io/yourdatasucks/lettersmith:dev
-    
-    # Or pin to specific version
-    # image: ghcr.io/yourdatasucks/lettersmith:v1.0.0
+Use the `DOCKER_IMAGE` environment variable to switch between versions:
+
+**For development (default):**
+```bash
+# Uses dev branch image (default)
+docker compose up -d
+# Same as: DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:dev docker compose up -d
 ```
 
-**Pull specific version**:
+**For production/stable use:**
 ```bash
-docker pull ghcr.io/yourdatasucks/lettersmith:v1.0.0
+# Temporary (this session only):
+DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:latest docker compose up -d
+
+# Or pin to specific version for reproducibility:
+DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:v1.0.0 docker compose up -d
+```
+
+**For local development:**
+```bash
+# Build and use local image
+docker build -t lettersmith:local .
+
+# Temporary (this session only):
+DOCKER_IMAGE=lettersmith:local docker compose up -d
+
+# Or export for multiple commands in same session:
+export DOCKER_IMAGE=lettersmith:local
 docker compose up -d
+docker compose logs -f app
+```
+
+**Persistent version selection:**
+```bash
+# Edit the existing DOCKER_IMAGE line in .env file
+# Change: DOCKER_IMAGE=lettersmith-test:latest
+# To:     DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:latest
+
+# Or use sed to replace it:
+sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=ghcr.io/yourdatasucks/lettersmith:latest|' .env
+docker compose up -d
+```
+
+## Release Process (Maintainer Only)
+
+### Creating Releases
+
+**Only project maintainers create releases using:**
+
+```bash
+# Ensure you're on main branch with clean working directory
+./scripts/release.sh
+```
+
+**The release script will:**
+1. Check you're on main branch with clean working directory
+2. Show current version and changelog
+3. Let you choose version bump (patch/minor/major/custom)
+4. Create and push git tag
+5. GitHub Actions automatically builds and publishes release images
+6. GitHub release is created automatically with changelog
+
+### Version Management
+
+The project uses semantic versioning (semver):
+- **Patch** (v1.0.1) - Bug fixes, no breaking changes
+- **Minor** (v1.1.0) - New features, backward compatible  
+- **Major** (v2.0.0) - Breaking changes
+
+### Manual Release (Alternative)
+
+```bash
+# Ensure clean state on main
+git checkout main
+git pull origin main
+
+# Create and push tag  
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# GitHub Actions handles the rest automatically
 ``` 
