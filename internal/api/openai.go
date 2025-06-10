@@ -6,19 +6,17 @@ import (
 	"time"
 )
 
-// OpenAIClient implements the AIClient interface for OpenAI
 type OpenAIClient struct {
 	apiKey string
 	model  string
 }
 
-// NewOpenAIClient creates a new OpenAI client
 func NewOpenAIClient(apiKey, model string) (*OpenAIClient, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API key is required")
 	}
 	if model == "" {
-		model = "gpt-4" // default model
+		model = "gpt-4"
 	}
 
 	return &OpenAIClient{
@@ -27,18 +25,14 @@ func NewOpenAIClient(apiKey, model string) (*OpenAIClient, error) {
 	}, nil
 }
 
-// GenerateLetter creates a personalized letter using OpenAI
 func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationRequest) (*Letter, error) {
-	// TODO: Implement actual OpenAI API call
-	// For now, return a placeholder response
-
 	letter := &Letter{
 		Subject: fmt.Sprintf("Privacy Rights Advocacy - %s Resident", req.RepresentativeState),
 		Content: c.generatePlaceholderLetter(req),
 		Metadata: Metadata{
 			Provider:    "openai",
 			Model:       c.model,
-			TokensUsed:  500, // placeholder
+			TokensUsed:  500,
 			GeneratedAt: time.Now(),
 			Tone:        req.Tone,
 			Theme:       "data privacy protection",
@@ -50,35 +44,28 @@ func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationReques
 	return letter, nil
 }
 
-// ValidateAPIKey checks if the OpenAI API key is valid
 func (c *OpenAIClient) ValidateAPIKey(ctx context.Context) error {
-	// TODO: Implement actual API key validation
-	// For now, just check if the key looks like an OpenAI key
 	if len(c.apiKey) < 20 || !startsWith(c.apiKey, "sk-") {
 		return fmt.Errorf("invalid OpenAI API key format")
 	}
 	return nil
 }
 
-// GetProviderName returns the provider name
 func (c *OpenAIClient) GetProviderName() string {
 	return "openai"
 }
 
-// EstimateCost returns the estimated cost for generating a letter
 func (c *OpenAIClient) EstimateCost(req *GenerationRequest) float64 {
-	// Rough estimates based on OpenAI pricing (as of 2024)
 	switch c.model {
 	case "gpt-4":
-		return 0.05 // ~$0.05 per letter
+		return 0.05
 	case "gpt-3.5-turbo":
-		return 0.01 // ~$0.01 per letter
+		return 0.01
 	default:
-		return 0.03 // default estimate
+		return 0.03
 	}
 }
 
-// generatePlaceholderLetter creates a placeholder letter for testing
 func (c *OpenAIClient) generatePlaceholderLetter(req *GenerationRequest) string {
 	return fmt.Sprintf(`Dear %s %s,
 

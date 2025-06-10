@@ -13,11 +13,9 @@ import (
 	"time"
 )
 
-// loadFromCensusBureau downloads ZIP code data from the US Census Bureau's official Gazetteer files
 func (zg *ZipGeocoder) loadFromCensusBureau() error {
 	log.Println("Downloading ZIP code data from US Census Bureau...")
 
-	// Try multiple years to future-proof against URL changes
 	currentYear := time.Now().Year()
 	urls := zg.generateCensusBureauURLs(currentYear)
 
@@ -41,68 +39,57 @@ func (zg *ZipGeocoder) loadFromCensusBureau() error {
 			continue
 		}
 
-		// Success! Process the data
 		log.Printf("Successfully connected to Census Bureau: %s", url)
 		return zg.processCensusBureauData(resp.Body)
 	}
 
-	// All URLs failed
 	return fmt.Errorf("all Census Bureau URLs failed, last error: %w", lastErr)
 }
 
-// generateCensusBureauURLs creates a list of URLs to try, starting with custom URL if provided
 func (zg *ZipGeocoder) generateCensusBureauURLs(currentYear int) []string {
 	var urls []string
 
-	// Check for custom URL from environment variable first
 	if customURL := os.Getenv("CENSUS_BUREAU_URL"); customURL != "" {
 		log.Printf("Using custom Census Bureau URL: %s", customURL)
 		urls = append(urls, customURL)
 	}
 
-	// Check for custom URL from configuration
 	if zg.config != nil && zg.config.CustomCensusBureauURL != "" {
 		log.Printf("Using configured Census Bureau URL: %s", zg.config.CustomCensusBureauURL)
 		urls = append(urls, zg.config.CustomCensusBureauURL)
 	}
 
-	// Default pattern with current and previous years
 	basePattern := "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/%d_Gazetteer/%d_Gaz_zcta_national.zip"
 
-	// Try current year and 2 previous years
 	for i := 0; i < 3; i++ {
 		year := currentYear - i
 		url := fmt.Sprintf(basePattern, year, year)
 		urls = append(urls, url)
 	}
 
-	// Try alternative file naming patterns that Census Bureau might use
 	altPatterns := []string{
-		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/Gaz_zcta_national.zip",        // No year
-		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/current/zcta_national.zip",    // Current folder
-		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/latest/Gaz_zcta_national.zip", // Latest folder
-		"https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/zcta520.zip",            // Alternative path
+		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/Gaz_zcta_national.zip",
+		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/current/zcta_national.zip",
+		"https://www2.census.gov/geo/docs/maps-data/data/gazetteer/latest/Gaz_zcta_national.zip",
+		"https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/zcta520.zip",
 	}
 
 	urls = append(urls, altPatterns...)
 	return urls
 }
 
-// processCensusBureauData handles the actual data processing from any successful URL
 func (zg *ZipGeocoder) processCensusBureauData(body io.Reader) error {
-	// Read the ZIP file content
+
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return fmt.Errorf("failed to read ZIP file content: %w", err)
 	}
 
-	// Open the ZIP archive
 	zipReader, err := zip.NewReader(strings.NewReader(string(data)), int64(len(data)))
 	if err != nil {
 		return fmt.Errorf("failed to open ZIP archive: %w", err)
 	}
 
-	// Find the text file inside the ZIP
 	var textFile *zip.File
 	for _, file := range zipReader.File {
 		if strings.HasSuffix(strings.ToLower(file.Name), ".txt") {
@@ -115,25 +102,21 @@ func (zg *ZipGeocoder) processCensusBureauData(body io.Reader) error {
 		return fmt.Errorf("no text file found in ZIP archive")
 	}
 
-	// Open and read the text file
 	textReader, err := textFile.Open()
 	if err != nil {
 		return fmt.Errorf("failed to open text file: %w", err)
 	}
 	defer textReader.Close()
 
-	// Parse the tab-delimited Census Bureau format
 	csvReader := csv.NewReader(textReader)
-	csvReader.Comma = '\t' // Tab-delimited format
+	csvReader.Comma = '\t'
 
-	// Begin transaction for bulk insert
 	tx, err := zg.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Prepare insert statement
 	stmt, err := tx.Prepare(`
 		INSERT INTO zip_coordinates (zip_code, latitude, longitude, city, state) 
 		VALUES ($1, $2, $3, $4, $5) 
@@ -162,29 +145,24 @@ func (zg *ZipGeocoder) processCensusBureauData(body io.Reader) error {
 			continue
 		}
 
-		// Skip header row
 		if header {
 			header = false
 			continue
 		}
 
-		// Census Bureau format: GEOID, ALAND, AWATER, ALAND_SQMI, AWATER_SQMI, INTPTLAT, INTPTLONG
-		// We need: ZIP (GEOID), Latitude (INTPTLAT), Longitude (INTPTLONG)
 		if len(record) < 7 {
 			log.Printf("Warning: record has insufficient columns: %v", record)
 			continue
 		}
 
-		zipCode := strings.TrimSpace(record[0]) // GEOID (ZIP code)
-		latStr := strings.TrimSpace(record[5])  // INTPTLAT (Internal Point Latitude)
-		lonStr := strings.TrimSpace(record[6])  // INTPTLONG (Internal Point Longitude)
+		zipCode := strings.TrimSpace(record[0])
+		latStr := strings.TrimSpace(record[5])
+		lonStr := strings.TrimSpace(record[6])
 
-		// Validate ZIP code format
 		if len(zipCode) != 5 {
 			continue
 		}
 
-		// Parse coordinates
 		lat, err := strconv.ParseFloat(latStr, 64)
 		if err != nil {
 			log.Printf("Warning: invalid latitude for ZIP %s: %s", zipCode, latStr)
@@ -197,11 +175,9 @@ func (zg *ZipGeocoder) processCensusBureauData(body io.Reader) error {
 			continue
 		}
 
-		// Determine state from ZIP code (first digit gives rough geographic region)
 		state := getStateFromZip(zipCode)
-		city := "" // Census gazetteer doesn't include city names
+		city := ""
 
-		// Insert record
 		_, err = stmt.Exec(zipCode, lat, lon, city, state)
 		if err != nil {
 			log.Printf("Warning: failed to insert ZIP %s: %v", zipCode, err)
@@ -219,45 +195,201 @@ func (zg *ZipGeocoder) processCensusBureauData(body io.Reader) error {
 	return nil
 }
 
-// getStateFromZip provides a rough state approximation based on ZIP code prefix
-// This is a simplified mapping - in practice, ZIP boundaries can cross state lines
 func getStateFromZip(zipCode string) string {
-	if len(zipCode) < 1 {
+	if len(zipCode) < 3 {
 		return ""
 	}
 
-	// Basic ZIP code to state mapping (first digit)
+	if strings.HasPrefix(zipCode, "006") || strings.HasPrefix(zipCode, "007") || strings.HasPrefix(zipCode, "009") {
+		return "PR"
+	}
+
+	if strings.HasPrefix(zipCode, "008") {
+		return "VI"
+	}
+
+	if strings.HasPrefix(zipCode, "969") {
+		return "GU"
+	}
+
+	if strings.HasPrefix(zipCode, "967") || strings.HasPrefix(zipCode, "968") {
+		return "HI"
+	}
+
 	switch zipCode[0] {
 	case '0':
-		return "MA" // Northeast (MA, CT, ME, NH, VT, RI)
+
+		if zipCode >= "01000" && zipCode <= "02799" {
+			return "MA"
+		}
+		if zipCode >= "02800" && zipCode <= "02999" {
+			return "RI"
+		}
+		if zipCode >= "03000" && zipCode <= "03999" {
+			return "NH"
+		}
+		if zipCode >= "04000" && zipCode <= "04999" {
+			return "ME"
+		}
+		if zipCode >= "05000" && zipCode <= "05999" {
+			return "VT"
+		}
+		if zipCode >= "06000" && zipCode <= "06999" {
+			return "CT"
+		}
+		if zipCode >= "07000" && zipCode <= "08999" {
+			return "NJ"
+		}
+		return "CT"
 	case '1':
-		return "NY" // NY, PA, DE
+		if zipCode >= "10000" && zipCode <= "14999" {
+			return "NY"
+		}
+		if zipCode >= "15000" && zipCode <= "19699" {
+			return "PA"
+		}
+		if zipCode >= "19700" && zipCode <= "19999" {
+			return "DE"
+		}
+		return "PA"
 	case '2':
-		return "VA" // DC, MD, NC, SC, VA, WV
+		if zipCode >= "20000" && zipCode <= "20599" {
+			return "DC"
+		}
+		if zipCode >= "20600" && zipCode <= "21999" {
+			return "MD"
+		}
+		if zipCode >= "22000" && zipCode <= "24699" {
+			return "VA"
+		}
+		if zipCode >= "25000" && zipCode <= "26999" {
+			return "WV"
+		}
+		if zipCode >= "27000" && zipCode <= "28999" {
+			return "NC"
+		}
+		if zipCode >= "29000" && zipCode <= "29999" {
+			return "SC"
+		}
+		return "NC"
 	case '3':
-		return "FL" // AL, FL, GA, MS, TN
+		if zipCode >= "30000" && zipCode <= "31999" {
+			return "GA"
+		}
+		if zipCode >= "32000" && zipCode <= "34999" {
+			return "FL"
+		}
+		if zipCode >= "35000" && zipCode <= "36999" {
+			return "AL"
+		}
+		if zipCode >= "37000" && zipCode <= "38599" {
+			return "TN"
+		}
+		if zipCode >= "38600" && zipCode <= "39799" {
+			return "MS"
+		}
+		return "AL"
 	case '4':
-		return "KY" // IN, KY, MI, OH
+		if zipCode >= "40000" && zipCode <= "42799" {
+			return "KY"
+		}
+		if zipCode >= "43000" && zipCode <= "45999" {
+			return "OH"
+		}
+		if zipCode >= "46000" && zipCode <= "47999" {
+			return "IN"
+		}
+		return "MI"
 	case '5':
-		return "IA" // IA, MN, MT, ND, SD, WI
+		if zipCode >= "50000" && zipCode <= "52999" {
+			return "IA"
+		}
+		if zipCode >= "53000" && zipCode <= "54999" {
+			return "WI"
+		}
+		if zipCode >= "55000" && zipCode <= "56799" {
+			return "MN"
+		}
+		if zipCode >= "57000" && zipCode <= "57999" {
+			return "SD"
+		}
+		if zipCode >= "58000" && zipCode <= "58899" {
+			return "ND"
+		}
+		if zipCode >= "59000" && zipCode <= "59999" {
+			return "MT"
+		}
+		return "SD"
 	case '6':
-		return "TX" // IL, KS, MO, NE, TX
+		if zipCode >= "60000" && zipCode <= "62999" {
+			return "IL"
+		}
+		if zipCode >= "63000" && zipCode <= "65999" {
+			return "MO"
+		}
+		if zipCode >= "66000" && zipCode <= "67999" {
+			return "KS"
+		}
+		if zipCode >= "68000" && zipCode <= "69399" {
+			return "NE"
+		}
+		return "KS"
 	case '7':
-		return "TX" // AR, LA, OK, TX
+		if zipCode >= "70000" && zipCode <= "71499" {
+			return "LA"
+		}
+		if zipCode >= "72000" && zipCode <= "72999" {
+			return "AR"
+		}
+		if zipCode >= "73000" && zipCode <= "74999" {
+			return "OK"
+		}
+		return "TX"
 	case '8':
-		return "CO" // AZ, CO, ID, NM, NV, UT, WY
+		if zipCode >= "80000" && zipCode <= "81999" {
+			return "CO"
+		}
+		if zipCode >= "82000" && zipCode <= "83199" {
+			return "WY"
+		}
+		if zipCode >= "83200" && zipCode <= "83899" {
+			return "ID"
+		}
+		if zipCode >= "84000" && zipCode <= "84999" {
+			return "UT"
+		}
+		if zipCode >= "85000" && zipCode <= "86999" {
+			return "AZ"
+		}
+		if zipCode >= "87000" && zipCode <= "88999" {
+			return "NM"
+		}
+		if zipCode >= "89000" && zipCode <= "89999" {
+			return "NV"
+		}
+		return "NM"
 	case '9':
-		return "CA" // AK, AS, CA, GU, HI, MH, FM, MP, PW, OR, WA
+		if zipCode >= "90000" && zipCode <= "96199" {
+			return "CA"
+		}
+		if zipCode >= "96700" && zipCode <= "96999" {
+			return "HI"
+		}
+		if zipCode >= "97000" && zipCode <= "97999" {
+			return "OR"
+		}
+		if zipCode >= "98000" && zipCode <= "99999" {
+			return "WA"
+		}
+		return "AK"
 	default:
 		return ""
 	}
 }
 
-// loadFromBackupSource loads a minimal dataset of major cities if Census Bureau fails
 func (zg *ZipGeocoder) loadFromBackupSource() error {
 	log.Println("Loading backup ZIP code data for major cities...")
 
-	// Major cities backup data - this ensures the system works even if external APIs fail
 	backupData := []struct {
 		zip   string
 		lat   float64
@@ -282,7 +414,6 @@ func (zg *ZipGeocoder) loadFromBackupSource() error {
 		{"33101", 25.7617, -80.1918, "Miami", "FL"},
 	}
 
-	// Begin transaction
 	tx, err := zg.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)

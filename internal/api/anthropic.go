@@ -6,19 +6,17 @@ import (
 	"time"
 )
 
-// AnthropicClient implements the AIClient interface for Anthropic Claude
 type AnthropicClient struct {
 	apiKey string
 	model  string
 }
 
-// NewAnthropicClient creates a new Anthropic client
 func NewAnthropicClient(apiKey, model string) (*AnthropicClient, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Anthropic API key is required")
+		return nil, fmt.Errorf("anthropic API key is required")
 	}
 	if model == "" {
-		model = "claude-3-sonnet-20240229" // default model
+		model = "claude-3-sonnet-20240229"
 	}
 
 	return &AnthropicClient{
@@ -27,18 +25,14 @@ func NewAnthropicClient(apiKey, model string) (*AnthropicClient, error) {
 	}, nil
 }
 
-// GenerateLetter creates a personalized letter using Anthropic Claude
 func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationRequest) (*Letter, error) {
-	// TODO: Implement actual Anthropic API call
-	// For now, return a placeholder response
-
 	letter := &Letter{
 		Subject: fmt.Sprintf("Digital Privacy Advocacy - %s Constituent", req.RepresentativeState),
 		Content: c.generatePlaceholderLetter(req),
 		Metadata: Metadata{
 			Provider:    "anthropic",
 			Model:       c.model,
-			TokensUsed:  450, // placeholder
+			TokensUsed:  450,
 			GeneratedAt: time.Now(),
 			Tone:        req.Tone,
 			Theme:       "data privacy protection",
@@ -50,37 +44,30 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 	return letter, nil
 }
 
-// ValidateAPIKey checks if the Anthropic API key is valid
 func (c *AnthropicClient) ValidateAPIKey(ctx context.Context) error {
-	// TODO: Implement actual API key validation
-	// For now, just check if the key looks like an Anthropic key
 	if len(c.apiKey) < 20 || !startsWith(c.apiKey, "sk-ant-") {
 		return fmt.Errorf("invalid Anthropic API key format")
 	}
 	return nil
 }
 
-// GetProviderName returns the provider name
 func (c *AnthropicClient) GetProviderName() string {
 	return "anthropic"
 }
 
-// EstimateCost returns the estimated cost for generating a letter
 func (c *AnthropicClient) EstimateCost(req *GenerationRequest) float64 {
-	// Rough estimates based on Anthropic pricing (as of 2024)
 	switch c.model {
 	case "claude-3-opus-20240229":
-		return 0.08 // ~$0.08 per letter
+		return 0.08
 	case "claude-3-sonnet-20240229":
-		return 0.04 // ~$0.04 per letter
+		return 0.04
 	case "claude-3-haiku-20240307":
-		return 0.02 // ~$0.02 per letter
+		return 0.02
 	default:
-		return 0.04 // default estimate
+		return 0.04
 	}
 }
 
-// generatePlaceholderLetter creates a placeholder letter for testing
 func (c *AnthropicClient) generatePlaceholderLetter(req *GenerationRequest) string {
 	return fmt.Sprintf(`Dear %s %s,
 

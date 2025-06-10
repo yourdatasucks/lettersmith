@@ -35,7 +35,7 @@ type ServerConfig struct {
 }
 
 type AIConfig struct {
-	Provider  string // openai, anthropic
+	Provider  string
 	OpenAI    OpenAIConfig
 	Anthropic AnthropicConfig
 }
@@ -51,7 +51,7 @@ type AnthropicConfig struct {
 }
 
 type EmailConfig struct {
-	Provider string // smtp, sendgrid, mailgun
+	Provider string
 	SMTP     SMTPConfig
 	SendGrid SendGridConfig
 	Mailgun  MailgunConfig
@@ -88,22 +88,22 @@ type UserConfig struct {
 }
 
 type SchedulerConfig struct {
-	SendTime string // 24-hour format, e.g., "09:00"
+	SendTime string
 	Timezone string
 	Enabled  bool
 }
 
 type LetterConfig struct {
 	Themes           []string
-	Tone             string // professional, passionate, conversational
+	Tone             string
 	MaxLength        int
-	GenerationMethod string // ai, templates
+	GenerationMethod string
 	TemplateConfig   *TemplateConfig
 }
 
 type TemplateConfig struct {
 	Directory        string
-	RotationStrategy string // sequential, random-unique, random
+	RotationStrategy string
 	Personalize      bool
 }
 
@@ -118,7 +118,6 @@ func Load() (*Config, error) {
 }
 
 func loadFromEnv(cfg *Config) {
-	// Load individual database configuration variables
 	if user := os.Getenv("POSTGRES_USER"); user != "" {
 		cfg.Database.User = user
 	}
@@ -134,18 +133,16 @@ func loadFromEnv(cfg *Config) {
 		}
 	}
 
-	// Load DATABASE_URL if available, otherwise construct from individual fields
 	if url := os.Getenv("DATABASE_URL"); url != "" {
 		if parsed, err := parsePostgreSQLURL(url); err == nil {
 			cfg.Database = *parsed
 		}
 	} else if cfg.Database.User != "" && cfg.Database.Password != "" && cfg.Database.Name != "" {
-		// Construct DATABASE_URL from individual fields if not provided
-		cfg.Database.Host = "localhost" // Default for Docker Compose
+		cfg.Database.Host = "localhost"
 		if cfg.Database.Port == 0 {
-			cfg.Database.Port = 5432 // Default PostgreSQL port
+			cfg.Database.Port = 5432
 		}
-		cfg.Database.SSLMode = "disable" // Default for local development
+		cfg.Database.SSLMode = "disable"
 	}
 
 	if port := os.Getenv("PORT"); port != "" {
@@ -186,7 +183,7 @@ func loadFromEnv(cfg *Config) {
 	}
 	if username := os.Getenv("SMTP_USERNAME"); username != "" {
 		cfg.Email.SMTP.Username = username
-		cfg.Email.SMTP.From = username // Default from to username
+		cfg.Email.SMTP.From = username
 	}
 	if password := os.Getenv("SMTP_PASSWORD"); password != "" {
 		cfg.Email.SMTP.Password = password
@@ -275,7 +272,6 @@ func loadFromEnv(cfg *Config) {
 		}
 	}
 
-	// ZIP code data update setting
 	if zipUpdate := os.Getenv("ZIP_DATA_UPDATE"); zipUpdate != "" {
 		cfg.ZipDataUpdate = zipUpdate == "true"
 	}
@@ -326,7 +322,7 @@ func parsePostgreSQLURL(url string) (*DatabaseConfig, error) {
 		}
 	} else {
 		config.Host = hostPort
-		config.Port = 5432 // default
+		config.Port = 5432
 	}
 
 	questionIndex := strings.Index(dbPart, "?")
@@ -414,16 +410,13 @@ func setDefaults(cfg *Config) {
 		cfg.AI.Anthropic.Model = "claude-3-sonnet-20240229"
 	}
 
-	// Set default ZIP data update to true for fresh installs
 	if cfg.ZipDataUpdate == false {
 		cfg.ZipDataUpdate = true
 	}
 }
 
-// DatabaseURL returns the database connection string
 func (cfg *Config) DatabaseURL() string {
 	if cfg.Database.Host == "" {
-		// If no database config is provided, use default for development
 		return "postgres://lettersmith:lettersmith_pass@localhost:5432/lettersmith?sslmode=disable"
 	}
 

@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS representatives (
     name VARCHAR(255) NOT NULL,
     title VARCHAR(100) NOT NULL, -- Senator, Representative
     state VARCHAR(2) NOT NULL,
-    district VARCHAR(10), -- For House representatives
+    district VARCHAR(50), -- For House representatives
     party VARCHAR(50),
     email VARCHAR(255),
     phone VARCHAR(50),

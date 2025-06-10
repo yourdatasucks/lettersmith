@@ -83,7 +83,7 @@ func (c *Client) sendSMTPWithTLS(addr string, auth smtp.Auth, from string, to []
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		tlsConfig := &tls.Config{
 			ServerName:         c.config.SMTP.Host,
-			InsecureSkipVerify: allowInsecure, // Allow for local bridges with self-signed certs
+			InsecureSkipVerify: allowInsecure,
 		}
 		if err := client.StartTLS(tlsConfig); err != nil {
 			return fmt.Errorf("failed to start TLS: %w", err)

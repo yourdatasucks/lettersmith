@@ -36,9 +36,9 @@ func NewZipGeocoderWithConfig(db *sql.DB, config *GeocodingConfig) *ZipGeocoder 
 	}
 }
 
-// GetCoordinates returns the latitude and longitude for a given ZIP code
+
 func (zg *ZipGeocoder) GetCoordinates(zipCode string) (*Coordinates, error) {
-	// Clean ZIP code - take only first 5 digits
+	
 	if len(zipCode) > 5 {
 		zipCode = zipCode[:5]
 	}
@@ -70,8 +70,8 @@ func (zg *ZipGeocoder) GetCoordinates(zipCode string) (*Coordinates, error) {
 	return &coords, nil
 }
 
-// CheckDataFreshness returns the number of ZIP codes in the database
-// and can be used to determine if data needs to be refreshed
+
+
 func (zg *ZipGeocoder) CheckDataFreshness() (int, error) {
 	var count int
 	err := zg.db.QueryRow("SELECT COUNT(*) FROM zip_coordinates").Scan(&count)
@@ -81,37 +81,37 @@ func (zg *ZipGeocoder) CheckDataFreshness() (int, error) {
 	return count, nil
 }
 
-// LoadZipData loads ZIP code coordinate data into the database
-// It tries the Census Bureau source first, then falls back to backup data
+
+
 func (zg *ZipGeocoder) LoadZipData() error {
-	// Check if we already have data and don't need to reload
+	
 	var count int
 	err := zg.db.QueryRow("SELECT COUNT(*) FROM zip_coordinates").Scan(&count)
 	if err != nil {
 		return fmt.Errorf("failed to check existing data: %w", err)
 	}
 
-	if count > 1000 { // If we have a reasonable amount of data, skip loading
+	if count > 1000 { 
 		log.Printf("ZIP coordinate database already contains %d records, skipping update", count)
 		return nil
 	}
 
 	log.Println("Loading ZIP code coordinate data...")
 
-	// Try official Census Bureau source first (our agreed-upon authoritative source)
+	
 	err = zg.loadFromCensusBureau()
 	if err != nil {
 		log.Printf("Failed to load from Census Bureau: %v", err)
 		log.Println("Falling back to backup data...")
 
-		// Fall back to backup data for major cities
+		
 		err = zg.loadFromBackupSource()
 		if err != nil {
 			return fmt.Errorf("failed to load backup ZIP data: %w", err)
 		}
 	}
 
-	// Verify we loaded data successfully
+	
 	err = zg.db.QueryRow("SELECT COUNT(*) FROM zip_coordinates").Scan(&count)
 	if err != nil {
 		return fmt.Errorf("failed to verify data load: %w", err)
@@ -125,6 +125,6 @@ func (zg *ZipGeocoder) LoadZipData() error {
 	return nil
 }
 
-// The following method implementations are in datasources.go:
-// - loadFromCensusBureau()
-// - loadFromBackupSource()
+
+
+

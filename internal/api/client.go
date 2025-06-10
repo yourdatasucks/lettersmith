@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// Letter represents a generated letter
 type Letter struct {
 	Subject   string    `json:"subject"`
 	Content   string    `json:"content"`
@@ -14,18 +13,16 @@ type Letter struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Metadata contains information about letter generation
 type Metadata struct {
-	Provider    string    `json:"provider"`    // openai, anthropic
-	Model       string    `json:"model"`       // gpt-4, claude-3-sonnet, etc.
-	TokensUsed  int       `json:"tokens_used"` // approximate token usage
+	Provider    string    `json:"provider"`
+	Model       string    `json:"model"`
+	TokensUsed  int       `json:"tokens_used"`
 	GeneratedAt time.Time `json:"generated_at"`
-	Tone        string    `json:"tone"`       // professional, passionate, etc.
-	Theme       string    `json:"theme"`      // privacy, consumer protection, etc.
-	MaxLength   int       `json:"max_length"` // target word count
+	Tone        string    `json:"tone"`
+	Theme       string    `json:"theme"`
+	MaxLength   int       `json:"max_length"`
 }
 
-// GenerationRequest contains parameters for letter generation
 type GenerationRequest struct {
 	UserName            string   `json:"user_name"`
 	UserZipCode         string   `json:"user_zip_code"`
@@ -35,25 +32,16 @@ type GenerationRequest struct {
 	Themes              []string `json:"themes"`
 	Tone                string   `json:"tone"`
 	MaxLength           int      `json:"max_length"`
-	Context             string   `json:"context,omitempty"` // Additional context for generation
+	Context             string   `json:"context,omitempty"`
 }
 
-// AIClient interface for different AI providers
 type AIClient interface {
-	// GenerateLetter creates a personalized letter based on the request
 	GenerateLetter(ctx context.Context, req *GenerationRequest) (*Letter, error)
-
-	// ValidateAPIKey checks if the API key is valid
 	ValidateAPIKey(ctx context.Context) error
-
-	// GetProviderName returns the name of the AI provider
 	GetProviderName() string
-
-	// EstimateCost returns the estimated cost for generating a letter (in USD)
 	EstimateCost(req *GenerationRequest) float64
 }
 
-// NewClient creates a new AI client based on the provider
 func NewClient(provider, apiKey, model string) (AIClient, error) {
 	switch provider {
 	case "openai":

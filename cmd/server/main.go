@@ -15,6 +15,7 @@ import (
 	"github.com/yourdatasucks/lettersmith/internal/config"
 	"github.com/yourdatasucks/lettersmith/internal/email"
 	"github.com/yourdatasucks/lettersmith/internal/geocoding"
+	"github.com/yourdatasucks/lettersmith/internal/reps"
 
 	_ "github.com/lib/pq"
 )
@@ -22,13 +23,11 @@ import (
 var geocoderInstance *geocoding.ZipGeocoder
 
 func main() {
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Connect to database
 	dbURL := cfg.DatabaseURL()
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -50,7 +49,6 @@ func main() {
 		log.Println("Database migrations completed successfully")
 	}
 
-	// Initialize geocoding service for ZIP code to coordinates conversion
 	geocodingConfig := &geocoding.GeocodingConfig{
 		CustomCensusBureauURL: cfg.CensusBureauURL,
 	}
@@ -63,7 +61,6 @@ func main() {
 		}
 	}
 
-	// Store geocoder for use in handlers
 	geocoderInstance = geocoder
 
 	mux := http.NewServeMux()
@@ -103,13 +100,35 @@ func main() {
 		handleDatabaseDebug(w, r, db)
 	})
 
-	// Add system health endpoint
 	mux.HandleFunc("/api/system/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		handleSystemStatus(w, r, cfg, db)
+	})
+
+	mux.HandleFunc("/api/representatives", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleGetRepresentatives(w, r, db)
+		case http.MethodPost:
+			handleSyncRepresentatives(w, r, db)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/representatives/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut || r.Method == http.MethodDelete {
+			handleRepresentativeByID(w, r, db)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/test/representatives", func(w http.ResponseWriter, r *http.Request) {
+		handleTestRepresentatives(w, r, db)
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +158,7 @@ func handleGetConfig(w http.ResponseWriter, _ *http.Request, cfg *config.Config)
 	if method := envValues["LETTER_GENERATION_METHOD"]; method != "" {
 		freshCfg.Letter.GenerationMethod = method
 	} else {
-		freshCfg.Letter.GenerationMethod = "ai" // default
+		freshCfg.Letter.GenerationMethod = "ai"
 	}
 
 	if tone := envValues["LETTER_TONE"]; tone != "" {
@@ -238,8 +257,8 @@ func handleGetConfig(w http.ResponseWriter, _ *http.Request, cfg *config.Config)
 		},
 		"user":       currentCfg.User,
 		"scheduler":  currentCfg.Scheduler,
-		"letter":     currentCfg.Letter,            // Now uses fresh config from .env
-		"env_values": sanitizeEnvValues(envValues), // Sanitize secrets before returning
+		"letter":     currentCfg.Letter,
+		"env_values": sanitizeEnvValues(envValues),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -258,7 +277,6 @@ func handleUpdateConfig(w http.ResponseWriter, r *http.Request, _ *config.Config
 		return
 	}
 
-	// Get database connection for potential password updates
 	var dbConn *sql.DB
 	if cfg, err := config.Load(); err == nil {
 		dbURL := cfg.DatabaseURL()
@@ -284,7 +302,6 @@ func handleUpdateConfig(w http.ResponseWriter, r *http.Request, _ *config.Config
 func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Config) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Load fresh configuration from .env file to get updated values
 	freshCfg, err := config.Load()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -344,7 +361,7 @@ func handleConfigDebug(w http.ResponseWriter, _ *http.Request, cfg *config.Confi
 			"representatives_configured": isRepresentativesConfigured(freshCfg),
 			"validation_result":          getValidationResult(freshCfg),
 		},
-		"database_url_parsed": freshCfg.DatabaseURL(), // Now uses fresh config with updated values
+		"database_url_parsed": freshCfg.DatabaseURL(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -450,25 +467,23 @@ func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 		log.Printf(".env file does not exist yet: %v", err)
 	}
 
-	// Test write permissions
 	testFile := ".env_test_write"
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		log.Printf("ERROR: Cannot write to current directory: %v", err)
 		return fmt.Errorf("cannot write to current directory: %w", err)
 	} else {
-		os.Remove(testFile) // Clean up test file
+		os.Remove(testFile)
 		log.Printf("Current directory is writable")
 	}
 
 	existingEnv := readEnvFile()
 	log.Printf("Read %d existing environment variables from .env", len(existingEnv))
 
-	// Handle database configuration
 	if database, ok := updates["database"].(map[string]interface{}); ok {
 		oldPassword := existingEnv["POSTGRES_PASSWORD"]
 		oldUser := existingEnv["POSTGRES_USER"]
 		if oldUser == "" {
-			oldUser = "lettersmith" // default
+			oldUser = "lettersmith"
 		}
 
 		newUser := oldUser
@@ -482,7 +497,6 @@ func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 			newPassword = strings.TrimSpace(password)
 			existingEnv["POSTGRES_PASSWORD"] = newPassword
 
-			// Automatically update database user password if it changed
 			if oldPassword != "" && oldPassword != newPassword && dbConn != nil {
 				log.Printf("Updating database password for user: %s", newUser)
 				if err := updateDatabaseUserPassword(dbConn, newUser, newPassword); err != nil {
@@ -503,25 +517,23 @@ func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 			existingEnv["ZIP_DATA_UPDATE"] = strconv.FormatBool(zipDataUpdate)
 		}
 
-		// Construct DATABASE_URL from individual components
 		user := existingEnv["POSTGRES_USER"]
 		if user == "" {
-			user = "lettersmith" // default
+			user = "lettersmith"
 		}
 		password := existingEnv["POSTGRES_PASSWORD"]
 		if password == "" {
-			password = "lettersmith_pass" // default
+			password = "lettersmith_pass"
 		}
 		dbName := existingEnv["POSTGRES_DB"]
 		if dbName == "" {
-			dbName = "lettersmith" // default
+			dbName = "lettersmith"
 		}
 		port := existingEnv["POSTGRES_PORT"]
 		if port == "" {
-			port = "5432" // default
+			port = "5432"
 		}
 
-		// Construct the DATABASE_URL
 		databaseURL := fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable", user, password, port, dbName)
 		existingEnv["DATABASE_URL"] = databaseURL
 	}
@@ -706,7 +718,6 @@ func updateEnvFile(updates map[string]interface{}, dbConn *sql.DB) error {
 		"DATABASE_URL":      existingEnv["DATABASE_URL"],
 	})
 
-	// Advanced Configuration (not exposed in web UI)
 	writeEnvSection(&envContent, "Advanced Configuration", map[string]string{
 		"DOCKER_IMAGE":      existingEnv["DOCKER_IMAGE"],
 		"CENSUS_BUREAU_URL": existingEnv["CENSUS_BUREAU_URL"],
@@ -848,16 +859,15 @@ func sanitizeEnvValues(envValues map[string]string) map[string]string {
 		if value == "" {
 			sanitized[key] = ""
 		} else if key == "DATABASE_URL" {
-			// Special handling for DATABASE_URL - mask only the password portion
 			urlPattern := `(postgres://[^:]+:)([^@]+)(@.+)`
 			re := regexp.MustCompile(urlPattern)
 			if re.MatchString(value) {
 				sanitized[key] = re.ReplaceAllString(value, "${1}••••••••${3}")
 			} else {
-				sanitized[key] = "••••••••" // Fallback if URL doesn't match expected pattern
+				sanitized[key] = "••••••••"
 			}
 		} else if strings.Contains(strings.ToLower(key), "key") || strings.Contains(strings.ToLower(key), "password") {
-			sanitized[key] = "••••••••" // Use bullet characters to indicate it's set but hidden
+			sanitized[key] = "••••••••"
 		} else {
 			sanitized[key] = value
 		}
@@ -1053,7 +1063,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	healthyCount := 0
 	totalServices := 0
 
-	// Check Database
 	totalServices++
 	dbStatus := map[string]interface{}{
 		"name":    "Database",
@@ -1061,22 +1070,21 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 		"details": "",
 	}
 
-	// Get database configuration details from the actual config
 	dbHost := cfg.Database.Host
 	if dbHost == "" {
-		dbHost = "localhost" // default for Docker Compose
+		dbHost = "localhost"
 	}
 	dbPort := strconv.Itoa(cfg.Database.Port)
 	if cfg.Database.Port == 0 {
-		dbPort = "5432" // default
+		dbPort = "5432"
 	}
 	dbName := cfg.Database.Name
 	if dbName == "" {
-		dbName = "lettersmith" // default
+		dbName = "lettersmith"
 	}
 	dbUser := cfg.Database.User
 	if dbUser == "" {
-		dbUser = "lettersmith" // default
+		dbUser = "lettersmith"
 	}
 
 	if db != nil {
@@ -1094,7 +1102,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 	services["database"] = dbStatus
 
-	// Check Email Configuration
 	totalServices++
 	emailStatus := map[string]interface{}{
 		"name":    "Email Service",
@@ -1110,7 +1117,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	} else if emailProvider == "smtp" {
 		if envValues["SMTP_HOST"] != "" && envValues["SMTP_PORT"] != "" &&
 			envValues["SMTP_USERNAME"] != "" && envValues["SMTP_PASSWORD"] != "" {
-			// Test SMTP connection
 			emailConfig := &config.EmailConfig{
 				Provider: "smtp",
 				SMTP: config.SMTPConfig{
@@ -1144,7 +1150,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 	services["email"] = emailStatus
 
-	// Check AI/Template Configuration
 	totalServices++
 	aiStatus := map[string]interface{}{
 		"name":    "Letter Generation Method",
@@ -1154,7 +1159,7 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 
 	generationMethod := envValues["LETTER_GENERATION_METHOD"]
 	if generationMethod == "" {
-		generationMethod = "ai" // default
+		generationMethod = "ai"
 	}
 
 	if generationMethod == "ai" {
@@ -1187,7 +1192,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 	services["ai"] = aiStatus
 
-	// Check Representative Lookup
 	totalServices++
 	repsStatus := map[string]interface{}{
 		"name":    "Representative Lookup",
@@ -1195,18 +1199,37 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 		"details": "",
 	}
 
-	if envValues["OPENSTATES_API_KEY"] != "" {
-		repsStatus["status"] = "not_implemented"
-		repsStatus["details"] = "OpenStates API key configured but client not implemented"
-		missingComponents = append(missingComponents, "OpenStates Client Implementation")
-	} else {
+	openstatesKey := envValues["OPENSTATES_API_KEY"]
+	userZip := envValues["USER_ZIP_CODE"]
+
+	if openstatesKey == "" {
 		repsStatus["status"] = "not_configured"
-		repsStatus["details"] = "No representative lookup API configured"
-		missingComponents = append(missingComponents, "Representative API")
+		repsStatus["details"] = "No OpenStates API key configured"
+		missingComponents = append(missingComponents, "OpenStates API Key")
+	} else if userZip == "" {
+		repsStatus["status"] = "incomplete"
+		repsStatus["details"] = "OpenStates API key configured but USER_ZIP_CODE missing"
+		missingComponents = append(missingComponents, "User ZIP Code")
+	} else if geocoderInstance == nil {
+		repsStatus["status"] = "error"
+		repsStatus["details"] = "OpenStates configured but geocoding service unavailable"
+	} else {
+		var repCount int
+		if err := db.QueryRow("SELECT COUNT(*) FROM representatives").Scan(&repCount); err != nil {
+			repsStatus["status"] = "error"
+			repsStatus["details"] = fmt.Sprintf("Database error: %v", err)
+		} else if repCount > 0 {
+			repsStatus["status"] = "healthy"
+			repsStatus["details"] = fmt.Sprintf("OpenStates integration working - %d representatives loaded", repCount)
+			healthyCount++
+		} else {
+			repsStatus["status"] = "ready"
+			repsStatus["details"] = "OpenStates configured and ready - click 'Sync from OpenStates' to load representatives"
+			healthyCount++
+		}
 	}
 	services["representatives"] = repsStatus
 
-	// Check Geocoding Service
 	totalServices++
 	geoStatus := map[string]interface{}{
 		"name":    "Geocoding Service",
@@ -1224,7 +1247,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 	services["geocoding"] = geoStatus
 
-	// Check Scheduler
 	totalServices++
 	schedulerStatus := map[string]interface{}{
 		"name":    "Scheduler",
@@ -1234,7 +1256,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	missingComponents = append(missingComponents, "Scheduler Implementation")
 	services["scheduler"] = schedulerStatus
 
-	// Check User Configuration
 	totalServices++
 	userStatus := map[string]interface{}{
 		"name":    "User Configuration",
@@ -1253,7 +1274,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 	}
 	services["user_config"] = userStatus
 
-	// Update summary
 	status["missing_components"] = missingComponents
 	status["summary"] = map[string]interface{}{
 		"healthy_services":      healthyCount,
@@ -1262,7 +1282,6 @@ func handleSystemStatus(w http.ResponseWriter, _ *http.Request, cfg *config.Conf
 		"ready_for_operation":   len(missingComponents) == 0 && healthyCount == totalServices,
 	}
 
-	// Set overall status
 	if len(missingComponents) > 0 {
 		status["overall_status"] = "incomplete"
 	} else if healthyCount < totalServices {
@@ -1293,19 +1312,16 @@ func handleDatabaseDebug(w http.ResponseWriter, _ *http.Request, db *sql.DB) {
 		"total_tables":      0,
 	}
 
-	// Get PostgreSQL version
 	var version string
 	if err := db.QueryRow("SELECT version()").Scan(&version); err == nil {
 		debugInfo["database_version"] = version
 	}
 
-	// Get current database name
 	var dbName string
 	if err := db.QueryRow("SELECT current_database()").Scan(&dbName); err == nil {
 		debugInfo["current_database"] = dbName
 	}
 
-	// Get list of tables with row counts
 	query := `
 		SELECT 
 			t.table_name,
@@ -1336,7 +1352,6 @@ func handleDatabaseDebug(w http.ResponseWriter, _ *http.Request, db *sql.DB) {
 			continue
 		}
 
-		// Get actual row count for small tables
 		var actualRows int64
 		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
 		if err := db.QueryRow(countQuery).Scan(&actualRows); err == nil {
@@ -1372,9 +1387,7 @@ func updateDatabaseUserPassword(db *sql.DB, newUser string, newPassword string) 
 	return nil
 }
 
-// runMigrations executes all SQL migration files in order
 func runMigrations(db *sql.DB) error {
-	// Create migrations table to track which migrations have been applied
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version VARCHAR(255) PRIMARY KEY,
@@ -1385,7 +1398,6 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
-	// Create the update_updated_at_column function if it doesn't exist
 	_, err = db.Exec(`
 		CREATE OR REPLACE FUNCTION update_updated_at_column()
 		RETURNS TRIGGER AS $$
@@ -1399,14 +1411,12 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to create update function: %w", err)
 	}
 
-	// List of migration files in order
 	migrations := []string{
 		"001_initial_schema.sql",
 		"002_zip_coordinates.sql",
 	}
 
 	for _, migration := range migrations {
-		// Check if migration has already been applied
 		var count int
 		err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = $1", migration).Scan(&count)
 		if err != nil {
@@ -1418,20 +1428,17 @@ func runMigrations(db *sql.DB) error {
 			continue
 		}
 
-		// Read and execute migration file
 		log.Printf("Applying migration: %s", migration)
 		content, err := os.ReadFile(fmt.Sprintf("migrations/%s", migration))
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", migration, err)
 		}
 
-		// Execute migration
 		_, err = db.Exec(string(content))
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", migration, err)
 		}
 
-		// Record that migration was applied
 		_, err = db.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", migration)
 		if err != nil {
 			return fmt.Errorf("failed to record migration %s: %w", migration, err)
@@ -1441,4 +1448,253 @@ func runMigrations(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func handleTestRepresentatives(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	envValues := readEnvFile()
+	userZip := envValues["USER_ZIP_CODE"]
+	if userZip == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "USER_ZIP_CODE not configured in .env file",
+		})
+		return
+	}
+
+	openstatesKey := envValues["OPENSTATES_API_KEY"]
+	if openstatesKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "OPENSTATES_API_KEY not configured in .env file",
+			"note":  "Get a free API key from https://openstates.org/api/",
+		})
+		return
+	}
+
+	if geocoderInstance == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Geocoding service not available",
+		})
+		return
+	}
+
+	coords, err := geocoderInstance.GetCoordinates(userZip)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":    fmt.Sprintf("Failed to get coordinates for ZIP %s: %v", userZip, err),
+			"zip_code": userZip,
+		})
+		return
+	}
+
+	resp, err := geocoderInstance.GetRepresentativesFromZip(userZip, openstatesKey)
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":    fmt.Sprintf("Failed to get representatives: %v", err),
+			"zip_code": userZip,
+			"coordinates": map[string]interface{}{
+				"latitude":  coords.Latitude,
+				"longitude": coords.Longitude,
+				"city":      coords.City,
+				"state":     coords.State,
+			},
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var representatives map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&representatives); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":    fmt.Sprintf("Failed to parse OpenStates response: %v", err),
+			"zip_code": userZip,
+		})
+		return
+	}
+
+	result := map[string]interface{}{
+		"zip_code": userZip,
+		"coordinates": map[string]interface{}{
+			"latitude":  coords.Latitude,
+			"longitude": coords.Longitude,
+			"city":      coords.City,
+			"state":     coords.State,
+		},
+		"representatives": representatives,
+		"api_status":      resp.StatusCode,
+	}
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleGetRepresentatives(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	envValues := readEnvFile()
+	userZip := envValues["USER_ZIP_CODE"]
+	if userZip == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "USER_ZIP_CODE not configured in .env file",
+		})
+		return
+	}
+
+	repsService := reps.NewService(db)
+
+	representatives, err := repsService.GetUserRepresentatives(userZip)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to get representatives: %v", err),
+		})
+		return
+	}
+
+	result := map[string]interface{}{
+		"zip_code":        userZip,
+		"representatives": representatives,
+		"count":           len(representatives),
+	}
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleSyncRepresentatives(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	envValues := readEnvFile()
+	userZip := envValues["USER_ZIP_CODE"]
+	openstatesKey := envValues["OPENSTATES_API_KEY"]
+
+	if userZip == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "USER_ZIP_CODE not configured in .env file",
+		})
+		return
+	}
+
+	if openstatesKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "OPENSTATES_API_KEY not configured in .env file",
+		})
+		return
+	}
+
+	if geocoderInstance == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Geocoding service not available",
+		})
+		return
+	}
+
+	coords, err := geocoderInstance.GetCoordinates(userZip)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to get coordinates for ZIP %s: %v", userZip, err),
+		})
+		return
+	}
+
+	repsService := reps.NewService(db)
+	err = repsService.SyncFromOpenStates(coords.Latitude, coords.Longitude, openstatesKey, coords.State)
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to sync representatives: %v", err),
+		})
+		return
+	}
+
+	representatives, err := repsService.GetUserRepresentatives(userZip)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to get updated representatives: %v", err),
+		})
+		return
+	}
+
+	result := map[string]interface{}{
+		"status":          "Representatives synced successfully",
+		"zip_code":        userZip,
+		"representatives": representatives,
+		"count":           len(representatives),
+	}
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleRepresentativeByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	id, err := reps.ExtractIDFromPath(r.URL.Path)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Invalid representative ID: %v", err),
+		})
+		return
+	}
+
+	repsService := reps.NewService(db)
+
+	switch r.Method {
+	case http.MethodPut:
+		var updates map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Invalid JSON format",
+			})
+			return
+		}
+
+		err := repsService.UpdateRepresentative(id, updates)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": fmt.Sprintf("Failed to update representative: %v", err),
+			})
+			return
+		}
+
+		rep, err := repsService.GetRepresentativeByID(id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": fmt.Sprintf("Failed to get updated representative: %v", err),
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(rep)
+
+	case http.MethodDelete:
+		err := repsService.DeleteRepresentative(id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": fmt.Sprintf("Failed to delete representative: %v", err),
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "Representative deleted successfully",
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
