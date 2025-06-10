@@ -12,6 +12,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
     setupRealTimeTrimming();
+
+    // Add event listeners for database fields
+    const dbFields = ['postgres-user', 'postgres-password', 'postgres-db', 'postgres-port'];
+    dbFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', updateDatabaseURL);
+        }
+    });
 });
 
 
@@ -202,6 +211,21 @@ function handleSMTPPresetChange(e) {
 }
 
 
+// Function to update DATABASE_URL display (for reference only - backend constructs the real URL)
+function updateDatabaseURL() {
+    const user = document.getElementById('postgres-user').value || 'lettersmith';
+    const password = document.getElementById('postgres-password').value || 'lettersmith_pass';
+    const db = document.getElementById('postgres-db').value || 'lettersmith';
+    const port = document.getElementById('postgres-port').value || '5432';
+    
+    // Create a masked version for display only
+    const maskedPassword = password ? '••••••••' : 'lettersmith_pass';
+    const displayURL = `postgres://${user}:${maskedPassword}@localhost:${port}/${db}?sslmode=disable`;
+    
+    document.getElementById('database-url').value = displayURL;
+}
+
+
 async function loadConfiguration() {
     try {
         const response = await fetch('/api/config');
@@ -209,11 +233,47 @@ async function loadConfiguration() {
         
         const config = await response.json();
         
-        
+        // Get environment variables from response
         const envValues = config.env_values || {};
         
+        // Load database configuration
+        document.getElementById('postgres-user').value = envValues.POSTGRES_USER || 'lettersmith';
+        document.getElementById('postgres-db').value = envValues.POSTGRES_DB || 'lettersmith';
+        document.getElementById('postgres-port').value = envValues.POSTGRES_PORT || '5432';
         
+        // Handle password field with the same pattern as other password fields
+        const passwordField = document.getElementById('postgres-password');
+        if (envValues.POSTGRES_PASSWORD && envValues.POSTGRES_PASSWORD === '••••••••') {
+            passwordField.value = '';
+            passwordField.placeholder = 'Password configured (leave blank to keep current)';
+            passwordField.classList.add('configured');
+        } else {
+            passwordField.value = envValues.POSTGRES_PASSWORD || '';
+            passwordField.placeholder = 'lettersmith_pass';
+            passwordField.classList.remove('configured');
+        }
         
+        // Display the DATABASE_URL for reference (backend constructs this)
+        let databaseURL = envValues.DATABASE_URL || '';
+        if (databaseURL && databaseURL.includes('@')) {
+            // Show masked version if it contains credentials
+            const urlPattern = /postgres:\/\/([^:]+):([^@]+)@(.+)/;
+            const match = databaseURL.match(urlPattern);
+            if (match) {
+                const [, user, , hostAndDb] = match;
+                const maskedURL = `postgres://${user}:••••••••@${hostAndDb}`;
+                document.getElementById('database-url').value = maskedURL;
+            } else {
+                document.getElementById('database-url').value = databaseURL;
+            }
+        } else {
+            document.getElementById('database-url').value = databaseURL;
+        }
+        
+        // Update database URL display when individual fields change
+        updateDatabaseURL();
+        
+        // Load user information
         document.getElementById('user-name').value = envValues.USER_NAME || config.user?.Name || '';
         document.getElementById('user-email').value = envValues.USER_EMAIL || config.user?.Email || '';
         document.getElementById('user-zip').value = envValues.USER_ZIP_CODE || config.user?.ZipCode || '';
@@ -372,13 +432,31 @@ async function saveConfiguration() {
     let openstatesKeyValue = '';
     
     try {
-        
+        // Build configuration object
         const config = {
+            database: {
+                user: document.getElementById('postgres-user').value.trim(),
+                password: document.getElementById('postgres-password').value.trim(),
+                db: document.getElementById('postgres-db').value.trim(),
+                port: parseInt(document.getElementById('postgres-port').value) || 5432
+                // Note: DATABASE_URL is constructed by the backend from these fields
+            },
             user: {
                 name: document.getElementById('user-name').value.trim(),
                 email: document.getElementById('user-email').value.trim(),
                 zip_code: document.getElementById('user-zip').value.trim(),
                 send_copy_to_self: document.getElementById('send-copy-to-self').checked
+            },
+            scheduler: {
+                send_time: document.getElementById('send-time').value.trim(),
+                timezone: document.getElementById('timezone').value.trim(),
+                enabled: document.getElementById('scheduler-enabled').checked
+            },
+            letter: {
+                generation_method: document.getElementById('generation-method').value.trim(),
+                tone: document.getElementById('letter-tone').value.trim(),
+                max_length: parseInt(document.getElementById('max-length').value) || 500,
+                themes: document.getElementById('user-email').value.trim() ? ["data privacy protection", "consumer rights", "corporate accountability"] : []
             },
             ai: {
                 provider: document.getElementById('ai-provider').value.trim()
@@ -386,17 +464,7 @@ async function saveConfiguration() {
             email: {
                 provider: document.getElementById('email-provider').value.trim()
             },
-            representatives: {},
-            scheduler: {
-                send_time: document.getElementById('send-time').value.trim(),
-                timezone: document.getElementById('timezone').value.trim(),
-                enabled: document.getElementById('scheduler-enabled').checked
-            },
-            letter: {
-                tone: document.getElementById('letter-tone').value.trim(),
-                max_length: parseInt(document.getElementById('max-length').value),
-                generation_method: document.getElementById('generation-method').value.trim()
-            }
+            representatives: {}
         };
         
         

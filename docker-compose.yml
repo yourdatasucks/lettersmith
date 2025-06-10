@@ -2,30 +2,33 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: lettersmith
-      POSTGRES_PASSWORD: lettersmith_pass
-      POSTGRES_DB: lettersmith
+      POSTGRES_USER: ${POSTGRES_USER:-lettersmith}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lettersmith_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-lettersmith}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lettersmith"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lettersmith}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   app:
     # Available tags: latest (stable), dev (development), or specific versions like v1.0.0
-    image: ghcr.io/yourdatasucks/lettersmith:dev
-    # image: lettersmith-test:latest
+    #image: ghcr.io/yourdatasucks/lettersmith:dev
+    #image: lettersmith-test:latest
+    image: ${DOCKER_IMAGE:-ghcr.io/yourdatasucks/lettersmith:dev}
     depends_on:
       db:
         condition: service_healthy
     network_mode: host
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgres://lettersmith:lettersmith_pass@localhost:5432/lettersmith?sslmode=disable
-      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${PORT:-8080}
     volumes:
       # Mount .env file for configuration persistence
       - ./.env:/app/.env

@@ -118,11 +118,34 @@ func Load() (*Config, error) {
 }
 
 func loadFromEnv(cfg *Config) {
+	// Load individual database configuration variables
+	if user := os.Getenv("POSTGRES_USER"); user != "" {
+		cfg.Database.User = user
+	}
+	if password := os.Getenv("POSTGRES_PASSWORD"); password != "" {
+		cfg.Database.Password = password
+	}
+	if db := os.Getenv("POSTGRES_DB"); db != "" {
+		cfg.Database.Name = db
+	}
+	if port := os.Getenv("POSTGRES_PORT"); port != "" {
+		if p, err := strconv.Atoi(port); err == nil {
+			cfg.Database.Port = p
+		}
+	}
 
+	// Load DATABASE_URL if available, otherwise construct from individual fields
 	if url := os.Getenv("DATABASE_URL"); url != "" {
 		if parsed, err := parsePostgreSQLURL(url); err == nil {
 			cfg.Database = *parsed
 		}
+	} else if cfg.Database.User != "" && cfg.Database.Password != "" && cfg.Database.Name != "" {
+		// Construct DATABASE_URL from individual fields if not provided
+		cfg.Database.Host = "localhost" // Default for Docker Compose
+		if cfg.Database.Port == 0 {
+			cfg.Database.Port = 5432 // Default PostgreSQL port
+		}
+		cfg.Database.SSLMode = "disable" // Default for local development
 	}
 
 	if port := os.Getenv("PORT"); port != "" {

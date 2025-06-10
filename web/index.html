@@ -19,6 +19,45 @@
         </nav>
 
         <main>
+            <h1>🚀 Lettersmith Configuration</h1>
+            <p class="intro">Configure your Lettersmith application settings below. Your configuration will be saved to a <code>.env</code> file and persisted across container restarts.</p>
+            
+            <!-- Database Configuration Section -->
+            <section class="config-section">
+                <h2>🗄️ Database Configuration</h2>
+                <div class="section-desc">Configure PostgreSQL database connection settings. These are used by Docker Compose to set up the database container.</div>
+                
+                <div class="form-group">
+                    <label for="postgres-user">Database User</label>
+                    <input type="text" id="postgres-user" name="postgres-user" placeholder="lettersmith">
+                    <small>Username for the PostgreSQL database</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postgres-password">Database Password</label>
+                    <input type="password" id="postgres-password" name="postgres-password" placeholder="lettersmith_pass">
+                    <small>Password for the PostgreSQL database</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postgres-db">Database Name</label>
+                    <input type="text" id="postgres-db" name="postgres-db" placeholder="lettersmith">
+                    <small>Name of the PostgreSQL database</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postgres-port">Database Port</label>
+                    <input type="number" id="postgres-port" name="postgres-port" placeholder="5432" min="1" max="65535">
+                    <small>Port number for the PostgreSQL database (usually 5432)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="database-url">Database URL (Display Only)</label>
+                    <input type="text" id="database-url" name="database-url" placeholder="postgres://user:••••••••@host:port/db?sslmode=disable" readonly>
+                    <small>This connection string is automatically constructed by the backend from the fields above (password masked for security)</small>
+                </div>
+            </section>
+
             <section class="config-section">
                 <h2>📝 User Information</h2>
                 <p class="section-desc">Minimal data collection - only what's essential</p>
