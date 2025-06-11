@@ -379,9 +379,11 @@ lettersmith/
 
 For current implementation status, see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
-## Testing
+## Testing (Optional)
 
-### Running Tests
+Unit tests are **optional** for contributors. The most important thing is ensuring the application works as a whole using the web interface and API endpoints.
+
+### Running Tests (Optional)
 
 ```bash
 # Run all tests
@@ -415,6 +417,17 @@ curl -X POST http://localhost:8080/api/config/test-email \
 # Navigate to configuration page and click "Test Email"
 ```
 
+### Integration Testing (Recommended)
+
+Instead of unit tests, focus on **end-to-end validation**:
+
+1. **Start the application**: `docker compose up -d`
+2. **Test via web UI**: Navigate to http://localhost:8080 and verify your changes work
+3. **Test API endpoints**: Use the built-in test features or curl commands
+4. **Check system status**: Visit `/status.html` to ensure all components are healthy
+
+This approach ensures your changes work in the real environment users will experience.
+
 ## Contributing Guidelines
 
 For the complete development workflow, see the [Development Workflow](#development-workflow) section below.
@@ -424,13 +437,13 @@ For the complete development workflow, see the [Development Workflow](#developme
 2. Follow one of the development setup options in [Development Workflow](#development-workflow)
 3. Create a feature branch from `dev`: `git checkout -b feature/amazing-feature dev`
 4. Make your changes following the code standards below
-5. Test your changes and submit a PR to the `dev` branch
+5. Verify your changes work end-to-end (web UI, API functionality) and submit a PR to the `dev` branch
 
 ### Code Standards
 
 - **Go formatting**: Use `go fmt`
 - **Linting**: Use `go vet` and `golangci-lint`
-- **Testing**: Aim for >80% test coverage
+- **Testing**: Unit tests are optional - focus on ensuring the application works end-to-end
 - **Documentation**: Comment exported functions and types
 - **Privacy**: Never log sensitive data (API keys, passwords, emails)
 

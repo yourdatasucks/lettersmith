@@ -337,8 +337,8 @@ go run cmd/server/main.go  # Migrations run automatically on startup
 - **Privacy First**: Never log or expose sensitive data (API keys, passwords, emails)
 - **User-Friendly**: Keep the web UI simple and accessible
 - **Documentation**: Update both user and developer documentation
-- **Testing**: Maintain good test coverage for reliability
-- **Go Standards**: Use `go fmt`, `go vet`, and add tests for new features
+- **Testing**: Unit tests are optional - ensure your changes work end-to-end via the web interface
+- **Go Standards**: Use `go fmt`, `go vet`, and ensure code quality
 
 **Next Priority:** AI letter generation functionality is the primary development focus.
 
