@@ -301,11 +301,17 @@ lettersmith/
 ├── internal/
 │   ├── config/          # Environment variable configuration
 │   │   └── config.go    # Config structs and loading
-│   ├── api/             # AI provider interfaces
+│   ├── ai/              # AI provider interfaces
 │   │   ├── client.go    # Common AI interface
 │   │   ├── openai.go    # OpenAI API client (placeholder)
 │   │   ├── anthropic.go # Anthropic API client (placeholder)
-│   │   └── utils.go     # Utility functions
+│   │   └── templates/   # AI prompt templates
+│   │       └── advocacy-prompt.txt
+│   ├── letters/         # Letter template engine
+│   │   └── templates/   # Letter templates for non-AI generation
+│   │       ├── privacy-professional-short.md
+│   │       ├── privacy-passionate-long.md
+│   │       └── consumer-protection-professional-medium.md
 │   ├── email/           # Email sending logic
 │   │   └── client.go    # SMTP email client
 │   ├── reps/            # Representative lookup ✅ IMPLEMENTED
@@ -315,14 +321,16 @@ lettersmith/
 │   │   ├── geocoding.go # Main geocoding service
 │   │   ├── datasources.go # US Census Bureau data loading
 │   │   └── openstates.go # OpenStates API integration
-│   └── scheduler/       # Daily job runner (planned)
-│       └── scheduler.go # Cron-like scheduler
+│   ├── scheduler/       # Daily job runner (planned)
+│   │   └── scheduler.go # Cron-like scheduler
+│   └── web/             # Internal web utilities
 ├── web/                 # Frontend static files
 │   ├── index.html       # Configuration UI
 │   ├── status.html      # System status dashboard  
 │   ├── representatives.html # Representatives management interface ✅
 │   ├── style.css        # Modern, privacy-focused styling
-│   └── app.js           # Frontend logic with .env management
+│   ├── app.js           # Frontend logic with .env management
+│   └── status.js        # Status dashboard functionality
 ├── migrations/          # SQL migration files
 │   ├── 001_initial_schema.sql # Initial schema with representatives table
 │   └── 002_zip_coordinates.sql # ZIP coordinates table

@@ -36,24 +36,26 @@
 
 ### 2.1 OpenAI Client Implementation 🔧
 ```bash
-internal/api/openai.go     # OpenAI API client (placeholder exists, needs implementation)
-internal/api/client.go     # Common AI interface (exists)
+internal/ai/openai.go     # OpenAI API client (placeholder exists, needs implementation)
+internal/ai/client.go     # Common AI interface (exists)
 ```
 
 **Status: Placeholder exists, needs actual functionality**
 - ✅ Interface and structure defined
+- ✅ AI prompt template structure created (`internal/ai/templates/advocacy-prompt.txt`)
 - ❌ Actual API calls and letter generation
-- ❌ Prompt templates and content generation
+- ❌ Prompt template execution and variable substitution
 - ❌ Error handling and retries
 - ❌ Cost tracking
 
 ### 2.2 Anthropic Client Implementation 🔧
 ```bash
-internal/api/anthropic.go  # Anthropic API client (placeholder exists, needs implementation)
+internal/ai/anthropic.go  # Anthropic API client (placeholder exists, needs implementation)
 ```
 
 **Status: Placeholder exists, needs actual functionality**
 - ✅ Interface and structure defined  
+- ✅ Shared AI prompt template structure available
 - ❌ Claude API integration
 - ❌ Rate limiting compliance
 - ❌ Actual letter generation functionality
@@ -102,17 +104,21 @@ internal/letters/prompts.go    # AI prompt templates (not started)
 - ❌ Variable substitution (name, representative, ZIP, etc.)
 - ❌ Letter validation and formatting
 
-### 4.2 Template System (OPTIONAL) ❌
+### 4.2 Template System (STRUCTURE READY) 🔧
 ```bash
-internal/letters/templates.go  # Template management (not started)
-templates/                     # Template files directory (not started)
+internal/letters/templates/    # Template files directory (structure created)
+├── privacy-professional-short.md
+├── privacy-passionate-long.md
+└── consumer-protection-professional-medium.md
 ```
 
-**Status: Future feature**
-- ❌ Markdown-based templates
+**Status: Template structure created, engine implementation needed**
+- ✅ Template file structure and directory created
+- ✅ Sample templates with YAML frontmatter created
+- ❌ Template engine implementation
 - ❌ Rotation strategies (random, sequential, unique)
-- ❌ Personalization variables
-- ❌ Theme-based templates
+- ❌ Template selection logic
+- ❌ Integration with AIClient interface
 
 ## Phase 5: Scheduler Implementation (PLANNED)
 
@@ -148,8 +154,8 @@ internal/scheduler/jobs.go         # Job definitions (not started)
 ### 🔧 Phase 2: AI Integration (NEXT PRIORITY)
 **Status: Interfaces exist, functionality needed**
 1. **Week 1-2: Complete OpenAI/Anthropic clients**
-   - Implement actual API calls in `internal/api/openai.go`
-   - Implement actual API calls in `internal/api/anthropic.go`
+   - Implement actual API calls in `internal/ai/openai.go`
+   - Implement actual API calls in `internal/ai/anthropic.go`
    - Add letter generation endpoint `POST /api/letters/generate`
    - Create basic prompt templates for privacy advocacy
 
