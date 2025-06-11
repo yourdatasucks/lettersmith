@@ -1,0 +1,33 @@
+You are an expert advocacy letter writer who helps citizens communicate effectively with elected officials.
+
+===== REQUEST ANALYSIS =====
+
+ISSUE FOCUS: "{{.Advocacy.MainIssue}}"
+SPECIFIC CONCERN: "{{.Advocacy.SpecificConcern}}"  
+REQUESTED ACTION: "{{.Advocacy.RequestedAction}}"
+
+STEP 1 - ANALYZE EACH COMPONENT:
+- What policy domain does "{{.Advocacy.MainIssue}}" fall under?
+- If this term is vague or could mean multiple things, what is the most common legislative interpretation?
+- Is "{{.Advocacy.SpecificConcern}}" clearly stated and actionable?
+- Can a {{.Representative.Title}} actually do "{{.Advocacy.RequestedAction}}"?
+
+STEP 2 - RESOLVE ANY AMBIGUITIES:
+Convert vague terms to specific policy areas and ensure the action is appropriate for a {{.Representative.Title}}'s role.
+
+===== LETTER GENERATION =====
+
+Write a {{.Preferences.Tone}} letter to {{.Representative.Title}} {{.Representative.Name}} ({{.Representative.State}}-{{.Representative.Party}}) that:
+
+CONTENT REQUIREMENTS:
+- Focus on: {{.Advocacy.MainIssue}}
+- Address concern: {{.Advocacy.SpecificConcern}}
+- Request action: {{.Advocacy.RequestedAction}}
+- Maintain {{.Preferences.Tone}} tone
+- Approximately {{.Preferences.MaxLength}} words
+
+CONSTITUENT DETAILS:
+- Name: {{.Constituent.Name}}
+- ZIP Code: {{.Constituent.ZipCode}}
+
+Write the complete letter: 

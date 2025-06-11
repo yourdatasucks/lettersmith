@@ -1,8 +1,9 @@
-package api
+package ai
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 }
 
 func (c *AnthropicClient) ValidateAPIKey(ctx context.Context) error {
-	if len(c.apiKey) < 20 || !startsWith(c.apiKey, "sk-ant-") {
+	if len(c.apiKey) < 20 || !strings.HasPrefix(c.apiKey, "sk-ant-") {
 		return fmt.Errorf("invalid Anthropic API key format")
 	}
 	return nil

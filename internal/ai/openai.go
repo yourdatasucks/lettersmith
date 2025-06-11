@@ -1,8 +1,9 @@
-package api
+package ai
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationReques
 }
 
 func (c *OpenAIClient) ValidateAPIKey(ctx context.Context) error {
-	if len(c.apiKey) < 20 || !startsWith(c.apiKey, "sk-") {
+	if len(c.apiKey) < 20 || !strings.HasPrefix(c.apiKey, "sk-") {
 		return fmt.Errorf("invalid OpenAI API key format")
 	}
 	return nil
