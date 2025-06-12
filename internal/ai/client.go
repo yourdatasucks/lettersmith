@@ -24,15 +24,16 @@ type Metadata struct {
 }
 
 type GenerationRequest struct {
-	UserName            string   `json:"user_name"`
-	UserZipCode         string   `json:"user_zip_code"`
-	RepresentativeName  string   `json:"representative_name"`
-	RepresentativeTitle string   `json:"representative_title"`
-	RepresentativeState string   `json:"representative_state"`
-	Themes              []string `json:"themes"`
-	Tone                string   `json:"tone"`
-	MaxLength           int      `json:"max_length"`
-	Context             string   `json:"context,omitempty"`
+	MainIssue           string `json:"main_issue"`
+	SpecificIssue       string `json:"specific_issue"`
+	RequestedAction     string `json:"requested_action"`
+	UserName            string `json:"user_name"`
+	UserZipCode         string `json:"user_zip_code"`
+	RepresentativeName  string `json:"representative_name"`
+	RepresentativeTitle string `json:"representative_title"`
+	RepresentativeState string `json:"representative_state"`
+	Tone                string `json:"tone"`
+	MaxLength           int    `json:"max_length"`
 }
 
 type AIClient interface {
