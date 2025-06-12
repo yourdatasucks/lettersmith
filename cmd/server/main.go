@@ -131,12 +131,17 @@ func main() {
 		handleTestRepresentatives(w, r, db)
 	})
 
+	// Serve static files from the web directory
+	mux.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir("web/css"))))
+	mux.Handle("/js/", http.StripPrefix("/js/", http.FileServer(http.Dir("web/js"))))
+	mux.Handle("/html/", http.StripPrefix("/html/", http.FileServer(http.Dir("web/html"))))
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			http.ServeFile(w, r, "web/index.html")
+			http.ServeFile(w, r, "web/html/index.html")
 			return
 		}
-		http.FileServer(http.Dir("web")).ServeHTTP(w, r)
+		http.ServeFile(w, r, "web/html"+r.URL.Path)
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
