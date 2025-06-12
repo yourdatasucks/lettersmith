@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status - Lettersmith</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1>Lettersmith AI Letter Generator</h1>
+            <p>Generate a letter to your representative</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <a href="index.html" class="nav-tab">Configuration</a>
+            <a href="status.html" class="nav-tab">System Status</a>
+            <a href="representatives.html" class="nav-tab">Representatives</a>
+            <a href="generate.html" class="nav-tab active">AI Letter Generator</a>
+        </nav>
+        <div id="letter-gen-content">
+            <h2>Generate a Letter</h2>
+            <form id="letter-gen-form">
+                <div class="form-group">
+                    <label for="main-issue">What is the main issue you want to address?</label>
+                    <input type="text" id="main-issue" name="main-issue" required 
+                           placeholder="e.g. Climate Change, Healthcare, Education">
+                </div>
+
+                <div class="form-group">
+                    <label for="specific-concern">What specific concern do you have about this issue?</label>
+                    <textarea id="specific-concern" name="specific-concern" required
+                             placeholder="Describe your specific concerns or experiences related to this issue"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="requested-action">What action would you like your representative to take?</label>
+                    <textarea id="requested-action" name="requested-action" required
+                             placeholder="What specific actions or changes would you like to see?"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Generate Letter</button>
+            </form>
+        </div>
+    </div>
+            
+    <script src="ai_letter_gen.js"></script>
+</body>
+</html> 
