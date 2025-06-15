@@ -107,9 +107,28 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 
 	prompt := buf.String()
 
-	maxTokens := req.MaxLength * 2
-	if maxTokens > 4000 {
-		maxTokens = 4000
+	// Better token calculation: 1 word ≈ 1.33 tokens, with buffer for instructions
+	// Add 500 tokens buffer for the representative selection and formatting
+	// Be more aggressive with token allocation for longer letters
+	baseTokens := int(float64(req.MaxLength) * 1.5)
+	bufferTokens := 500
+
+	// For longer letters, add extra buffer to ensure AI doesn't run out of tokens
+	if req.MaxLength > 500 {
+		bufferTokens = 1000 // Extra buffer for long letters
+	}
+
+	maxTokens := baseTokens + bufferTokens
+
+	// Claude 3 models can handle larger outputs than we were using
+	tokenCap := 8000 // Increased from 4000
+	if maxTokens > tokenCap {
+		maxTokens = tokenCap
+	}
+
+	// Ensure minimum tokens for any reasonable response
+	if maxTokens < 200 {
+		maxTokens = 200
 	}
 
 	anthropicReq := AnthropicRequest{
@@ -174,6 +193,9 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 
 	subject := fmt.Sprintf("Advocacy Letter: %s - %s Constituent", req.MainIssue, selectedRep.State)
 
+	// Calculate actual word count for debugging
+	actualWordCount := len(strings.Fields(letterContent))
+
 	letter := &Letter{
 		Subject: subject,
 		Content: letterContent,
@@ -185,6 +207,7 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 			Tone:                     req.Tone,
 			Theme:                    req.MainIssue,
 			MaxLength:                req.MaxLength,
+			ActualWordCount:          actualWordCount,
 			SelectedRepresentativeID: selectedRepID,
 		},
 		CreatedAt:              time.Now(),
@@ -203,8 +226,11 @@ func (c *AnthropicClient) parseAIResponse(content string, availableReps []Repres
 
 	for i, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
-		if strings.Contains(strings.ToUpper(trimmedLine), "SELECTED_REPRESENTATIVE_ID:") {
-			// Extract ID from line like "SELECTED_REPRESENTATIVE_ID: 5"
+		upperLine := strings.ToUpper(trimmedLine)
+
+		// Look for either "SELECTED_REPRESENTATIVE_ID:" or "SELECTED REPRESENTATIVE ID:"
+		if strings.Contains(upperLine, "SELECTED") && strings.Contains(upperLine, "REPRESENTATIVE") && strings.Contains(upperLine, "ID:") {
+			// Extract ID from line like "SELECTED_REPRESENTATIVE_ID: 5" or "SELECTED REPRESENTATIVE ID: 5"
 			parts := strings.Split(trimmedLine, ":")
 			if len(parts) >= 2 {
 				idStr := strings.TrimSpace(parts[1])

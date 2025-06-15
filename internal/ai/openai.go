@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -119,19 +120,58 @@ func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationReques
 
 	prompt := buf.String()
 
-	maxTokens := req.MaxLength * 2
-	if maxTokens > 4000 {
-		maxTokens = 4000
+	// Better token calculation: 1 word ≈ 1.33 tokens, with buffer for instructions
+	// Add 500 tokens buffer for the representative selection and formatting
+	// Be more aggressive with token allocation for longer letters
+	baseTokens := int(float64(req.MaxLength) * 1.5)
+	bufferTokens := 500
+
+	// For longer letters, add extra buffer to ensure AI doesn't run out of tokens
+	if req.MaxLength > 500 {
+		bufferTokens = 1000 // Extra buffer for long letters
+	}
+
+	maxTokens := baseTokens + bufferTokens
+
+	// Use model-specific limits - be more generous
+	var tokenCap int
+	switch c.model {
+	case "gpt-4", "gpt-4-turbo", "gpt-4-turbo-preview":
+		tokenCap = 16000 // Increase significantly for GPT-4 (it can handle up to 128k context)
+	case "gpt-3.5-turbo":
+		tokenCap = 8000 // Increase for GPT-3.5-turbo
+	default:
+		tokenCap = 8000 // More generous default
+	}
+
+	if maxTokens > tokenCap {
+		maxTokens = tokenCap
+	}
+
+	// Ensure minimum tokens for any reasonable response
+	if maxTokens < 200 {
+		maxTokens = 200
+	}
+
+	// Debug logging to help troubleshoot word count issues
+	log.Printf("OpenAI request: max_length=%d, base_tokens=%d, buffer=%d, final_tokens=%d, model=%s",
+		req.MaxLength, baseTokens, bufferTokens, maxTokens, c.model)
+
+	// Create messages with system message for better context setting
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: fmt.Sprintf("You are an expert advocacy letter writer. When asked to write a %d-word letter, you MUST write exactly that length. Longer letters require comprehensive, detailed content with multiple well-developed sections. Do not write short letters when long ones are requested.", req.MaxLength),
+		},
+		{
+			Role:    "user",
+			Content: prompt,
+		},
 	}
 
 	openaiReq := OpenAIRequest{
-		Model: c.model,
-		Messages: []Message{
-			{
-				Role:    "user",
-				Content: prompt,
-			},
-		},
+		Model:       c.model,
+		Messages:    messages,
 		MaxTokens:   maxTokens,
 		Temperature: 0.7,
 	}
@@ -186,6 +226,9 @@ func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationReques
 
 	subject := fmt.Sprintf("Advocacy Letter: %s - %s Constituent", req.MainIssue, selectedRep.State)
 
+	// Calculate actual word count for debugging
+	actualWordCount := len(strings.Fields(letterContent))
+
 	letter := &Letter{
 		Subject: subject,
 		Content: letterContent,
@@ -197,6 +240,7 @@ func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationReques
 			Tone:                     req.Tone,
 			Theme:                    req.MainIssue,
 			MaxLength:                req.MaxLength,
+			ActualWordCount:          actualWordCount,
 			SelectedRepresentativeID: selectedRepID,
 		},
 		CreatedAt:              time.Now(),
@@ -215,8 +259,11 @@ func (c *OpenAIClient) parseAIResponse(content string, availableReps []Represent
 
 	for i, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
-		if strings.Contains(strings.ToUpper(trimmedLine), "SELECTED_REPRESENTATIVE_ID:") {
-			// Extract ID from line like "SELECTED_REPRESENTATIVE_ID: 5"
+		upperLine := strings.ToUpper(trimmedLine)
+
+		// Look for either "SELECTED_REPRESENTATIVE_ID:" or "SELECTED REPRESENTATIVE ID:"
+		if strings.Contains(upperLine, "SELECTED") && strings.Contains(upperLine, "REPRESENTATIVE") && strings.Contains(upperLine, "ID:") {
+			// Extract ID from line like "SELECTED_REPRESENTATIVE_ID: 5" or "SELECTED REPRESENTATIVE ID: 5"
 			parts := strings.Split(trimmedLine, ":")
 			if len(parts) >= 2 {
 				idStr := strings.TrimSpace(parts[1])
@@ -231,6 +278,8 @@ func (c *OpenAIClient) parseAIResponse(content string, availableReps []Represent
 
 	// Be more strict - don't fall back if we can't parse the ID
 	if selectedRepID == -1 {
+		// Add debug logging to help troubleshoot parsing issues
+		log.Printf("Failed to parse representative ID from AI response. First 200 chars: %s", content[:min(200, len(content))])
 		return 0, "", nil, fmt.Errorf("could not find SELECTED_REPRESENTATIVE_ID in AI response. Response: %s", content[:min(500, len(content))])
 	}
 

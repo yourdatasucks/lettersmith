@@ -22,6 +22,7 @@ type Metadata struct {
 	Tone                     string    `json:"tone"`
 	Theme                    string    `json:"theme"`
 	MaxLength                int       `json:"max_length"`
+	ActualWordCount          int       `json:"actual_word_count"`
 	SelectedRepresentativeID int       `json:"selected_representative_id"`
 }
 

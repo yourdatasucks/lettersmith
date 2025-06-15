@@ -50,14 +50,34 @@ CONTENT REQUIREMENTS:
 - Address concern: {{.Advocacy.SpecificConcern}}
 - Request action: {{.Advocacy.RequestedAction}}
 - Maintain {{.Preferences.Tone}} tone
-- CRITICAL: Write EXACTLY {{.Preferences.MaxLength}} words (±25 words). Count your words carefully!
 
-WORD COUNT ENFORCEMENT:
-Your response must be approximately {{.Preferences.MaxLength}} words. This is a strict requirement.
-- If {{.Preferences.MaxLength}} is 300, write 275-325 words
-- If {{.Preferences.MaxLength}} is 500, write 475-525 words  
-- If {{.Preferences.MaxLength}} is 800, write 775-825 words
-Do NOT significantly exceed or fall short of this target.
+===== MANDATORY WORD COUNT REQUIREMENT =====
+
+TARGET LENGTH: {{.Preferences.MaxLength}} WORDS
+
+{{if gt .Preferences.MaxLength 500}}
+🚨 LONG LETTER MODE: {{.Preferences.MaxLength}} WORDS REQUIRED 🚨
+
+You are writing a COMPREHENSIVE, DETAILED advocacy letter. This is NOT a brief note.
+
+REQUIRED SECTIONS FOR LONG LETTERS:
+1. Personal introduction and connection to the issue (100-150 words)
+2. Detailed problem description with specific examples (200-300 words)
+3. Local impact and statistics relevant to {{.Constituent.ZipCode}} area (150-200 words)
+4. Historical context and background of {{.Advocacy.MainIssue}} (100-200 words)
+5. Specific consequences of {{.Advocacy.SpecificConcern}} (150-200 words)
+6. Detailed action requests with multiple specific steps (200-300 words)
+7. Urgency and call to action with timeline (100-150 words)
+8. Professional closing with follow-up commitment (50-100 words)
+
+WRITE EACH SECTION FULLY. DO NOT SKIP OR ABBREVIATE ANY SECTION.
+
+This letter represents an important civic engagement moment and deserves thorough treatment.
+{{else}}
+Write a focused, professional letter of approximately {{.Preferences.MaxLength}} words.
+{{end}}
+
+FINAL CHECK: Count your words before finishing. Your response must be {{.Preferences.MaxLength}} words (±50 words acceptable).
 
 CONSTITUENT DETAILS:
 - Name: {{.Constituent.Name}}
@@ -66,4 +86,13 @@ CONSTITUENT DETAILS:
 RESPONSE FORMAT:
 First line: SELECTED_REPRESENTATIVE_ID: [ID number]
 Second line: [blank line]
-Then write the complete letter addressed to the selected representative using their exact name and title: 
+Then write the complete letter addressed to the selected representative using their exact name and title:
+
+CRITICAL FORMAT EXAMPLE:
+SELECTED_REPRESENTATIVE_ID: 5
+
+Dear Senator Smith,
+
+[Your letter content here...]
+
+NOTE: Use underscores in "SELECTED_REPRESENTATIVE_ID" - do NOT use spaces like "SELECTED REPRESENTATIVE ID" 

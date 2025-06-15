@@ -99,7 +99,9 @@ function showResult(data) {
             <small>
                 Generated: ${new Date(data.letter.created_at).toLocaleString()} | 
                 Tokens: ${data.letter.metadata.tokens_used} | 
-                Actual Length: ~${data.letter.content.split(' ').length} words
+                Requested: ${data.configuration_used.max_length} words | 
+                Actual: ${data.letter.metadata.actual_word_count} words |
+                Word Count ${data.letter.metadata.actual_word_count >= data.configuration_used.max_length - 50 && data.letter.metadata.actual_word_count <= data.configuration_used.max_length + 50 ? '✅ OK' : '⚠️ OFF'}
             </small>
         </div>
     `;
@@ -132,7 +134,7 @@ function showError(message) {
 function setButtonLoading(button, isLoading) {
     if (isLoading) {
         button.disabled = true;
-        button.textContent = 'Generating Letter... (please wait 3 seconds)';
+        button.textContent = 'Generating Letter... (please wait while your letter is generated)';
         button.classList.add('loading');
     } else {
         button.disabled = false;
