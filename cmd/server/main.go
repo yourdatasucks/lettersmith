@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yourdatasucks/lettersmith/internal/ai"
 	"github.com/yourdatasucks/lettersmith/internal/config"
 	"github.com/yourdatasucks/lettersmith/internal/email"
 	"github.com/yourdatasucks/lettersmith/internal/geocoding"
@@ -129,6 +131,14 @@ func main() {
 
 	mux.HandleFunc("/api/test/representatives", func(w http.ResponseWriter, r *http.Request) {
 		handleTestRepresentatives(w, r, db)
+	})
+
+	mux.HandleFunc("/api/letters/generate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handleGenerateLetter(w, r, cfg, db)
 	})
 
 	// Serve static files from the web directory
@@ -1702,4 +1712,177 @@ func handleRepresentativeByID(w http.ResponseWriter, r *http.Request, db *sql.DB
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func handleGenerateLetter(w http.ResponseWriter, r *http.Request, cfg *config.Config, db *sql.DB) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var requestData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid JSON format",
+		})
+		return
+	}
+
+	advocacy, ok := requestData["advocacy"].(map[string]interface{})
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Missing advocacy data",
+		})
+		return
+	}
+
+	mainIssue, _ := advocacy["main_issue"].(string)
+	specificConcern, _ := advocacy["specific_concern"].(string)
+	requestedAction, _ := advocacy["requested_action"].(string)
+
+	if mainIssue == "" || specificConcern == "" || requestedAction == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Missing required fields: main_issue, specific_concern, requested_action",
+		})
+		return
+	}
+
+	envValues := readEnvFile()
+	userName := envValues["USER_NAME"]
+	userZipCode := envValues["USER_ZIP_CODE"]
+
+	if userName == "" || userZipCode == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "User name and ZIP code must be configured",
+		})
+		return
+	}
+
+	aiProvider := envValues["AI_PROVIDER"]
+	if aiProvider == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "AI provider not configured",
+		})
+		return
+	}
+
+	var aiAPIKey, aiModel string
+	if aiProvider == "openai" {
+		aiAPIKey = envValues["OPENAI_API_KEY"]
+		aiModel = envValues["OPENAI_MODEL"]
+		if aiModel == "" {
+			aiModel = "gpt-4"
+		}
+	} else if aiProvider == "anthropic" {
+		aiAPIKey = envValues["ANTHROPIC_API_KEY"]
+		aiModel = envValues["ANTHROPIC_MODEL"]
+		if aiModel == "" {
+			aiModel = "claude-3-sonnet-20240229"
+		}
+	}
+
+	if aiAPIKey == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("%s API key not configured", aiProvider),
+		})
+		return
+	}
+
+	// Get all available representatives so AI can choose
+	repsService := reps.NewService(db)
+	representatives, err := repsService.GetUserRepresentatives(userZipCode)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to get representatives: %v", err),
+		})
+		return
+	}
+
+	if len(representatives) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "No representatives found. Please sync representatives first.",
+		})
+		return
+	}
+
+	// Convert representatives to the format expected by AI
+	availableReps := make([]ai.RepresentativeOption, len(representatives))
+	for i, rep := range representatives {
+		availableReps[i] = ai.RepresentativeOption{
+			ID:       rep.ID,
+			Name:     rep.Name,
+			Title:    rep.Title,
+			State:    rep.State,
+			Party:    rep.Party,
+			District: rep.District,
+		}
+	}
+
+	aiClient, err := ai.NewClient(aiProvider, aiAPIKey, aiModel)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to create AI client: %v", err),
+		})
+		return
+	}
+
+	letterTone := envValues["LETTER_TONE"]
+	if letterTone == "" {
+		letterTone = "professional"
+	}
+
+	maxLength := 500
+	if maxLenStr := envValues["LETTER_MAX_LENGTH"]; maxLenStr != "" {
+		if parsed, err := strconv.Atoi(maxLenStr); err == nil {
+			maxLength = parsed
+		}
+	}
+
+	generationRequest := &ai.GenerationRequest{
+		MainIssue:                mainIssue,
+		SpecificIssue:            specificConcern,
+		RequestedAction:          requestedAction,
+		UserName:                 userName,
+		UserZipCode:              userZipCode,
+		AvailableRepresentatives: availableReps,
+		Tone:                     letterTone,
+		MaxLength:                maxLength,
+	}
+
+	ctx := context.Background()
+	letter, err := aiClient.GenerateLetter(ctx, generationRequest)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to generate letter: %v", err),
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "Letter generated successfully",
+		"letter": map[string]interface{}{
+			"subject":                 letter.Subject,
+			"content":                 letter.Content,
+			"metadata":                letter.Metadata,
+			"created_at":              letter.CreatedAt,
+			"selected_representative": letter.SelectedRepresentative,
+		},
+		"input": map[string]string{
+			"main_issue":       mainIssue,
+			"specific_concern": specificConcern,
+			"requested_action": requestedAction,
+		},
+		"ai_selection": map[string]interface{}{
+			"selected_representative_id": letter.Metadata.SelectedRepresentativeID,
+			"reasoning":                  "AI automatically selected the most appropriate representative for this issue",
+		},
+	})
 }

@@ -1,15 +1,57 @@
 package ai
 
 import (
+	"bytes"
 	"context"
+	"embed"
+	"encoding/json"
 	"fmt"
+	"html/template"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
+//go:embed templates/*.txt
+var promptTemplates embed.FS
+
 type OpenAIClient struct {
 	apiKey string
 	model  string
+}
+
+type OpenAIRequest struct {
+	Model       string    `json:"model"`
+	Messages    []Message `json:"messages"`
+	MaxTokens   int       `json:"max_tokens,omitempty"`
+	Temperature float64   `json:"temperature,omitempty"`
+}
+
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type OpenAIResponse struct {
+	ID      string   `json:"id"`
+	Object  string   `json:"object"`
+	Created int64    `json:"created"`
+	Model   string   `json:"model"`
+	Choices []Choice `json:"choices"`
+	Usage   Usage    `json:"usage"`
+}
+
+type Choice struct {
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
+}
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 func NewOpenAIClient(apiKey, model string) (*OpenAIClient, error) {
@@ -27,22 +69,199 @@ func NewOpenAIClient(apiKey, model string) (*OpenAIClient, error) {
 }
 
 func (c *OpenAIClient) GenerateLetter(ctx context.Context, req *GenerationRequest) (*Letter, error) {
-	letter := &Letter{
-		Subject: fmt.Sprintf("Privacy Rights Advocacy - %s Resident", req.RepresentativeState),
-		Content: c.generatePlaceholderLetter(req),
-		Metadata: Metadata{
-			Provider:    "openai",
-			Model:       c.model,
-			TokensUsed:  500,
-			GeneratedAt: time.Now(),
-			Tone:        req.Tone,
-			Theme:       "data privacy protection",
-			MaxLength:   req.MaxLength,
+	promptContent, err := promptTemplates.ReadFile("templates/advocacy-prompt.txt")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read prompt template: %w", err)
+	}
+
+	// Convert representatives to RepresentativeOption format
+	availableReps := make([]RepresentativeOption, len(req.AvailableRepresentatives))
+	for i, rep := range req.AvailableRepresentatives {
+		availableReps[i] = RepresentativeOption{
+			ID:       rep.ID,
+			Name:     rep.Name,
+			Title:    rep.Title,
+			State:    rep.State,
+			Party:    rep.Party,
+			District: rep.District,
+		}
+	}
+
+	data := PromptData{
+		Advocacy: AdvocacyContent{
+			MainIssue:       req.MainIssue,
+			SpecificConcern: req.SpecificIssue,
+			RequestedAction: req.RequestedAction,
 		},
-		CreatedAt: time.Now(),
+		Representative: RepresentativeInfo{
+			Title: "", // Will be filled after AI selection
+			Name:  "",
+			State: "",
+			Party: "",
+		},
+		AvailableRepresentatives: availableReps,
+		Constituent: ConstituentInfo{
+			Name:    req.UserName,
+			ZipCode: req.UserZipCode,
+		},
+		Preferences: LetterPreferences{
+			Tone:      req.Tone,
+			MaxLength: req.MaxLength,
+		},
+	}
+
+	tmpl := template.Must(template.New("advocacy").Parse(string(promptContent)))
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	prompt := buf.String()
+
+	maxTokens := req.MaxLength * 2
+	if maxTokens > 4000 {
+		maxTokens = 4000
+	}
+
+	openaiReq := OpenAIRequest{
+		Model: c.model,
+		Messages: []Message{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		MaxTokens:   maxTokens,
+		Temperature: 0.7,
+	}
+
+	reqBody, err := json.Marshal(openaiReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errorBody bytes.Buffer
+		errorBody.ReadFrom(resp.Body)
+
+		if resp.StatusCode == 429 {
+			return nil, fmt.Errorf("OpenAI rate limit exceeded (429). Error details: %s. Try again in a few minutes or check your quota at https://platform.openai.com/usage", errorBody.String())
+		}
+
+		return nil, fmt.Errorf("OpenAI API returned status %d: %s", resp.StatusCode, errorBody.String())
+	}
+
+	var openaiResp OpenAIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&openaiResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(openaiResp.Choices) == 0 {
+		return nil, fmt.Errorf("no choices returned from OpenAI")
+	}
+
+	content := openaiResp.Choices[0].Message.Content
+
+	// Parse the selected representative ID and letter content
+	selectedRepID, letterContent, selectedRep, err := c.parseAIResponse(content, req.AvailableRepresentatives)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	}
+
+	subject := fmt.Sprintf("Advocacy Letter: %s - %s Constituent", req.MainIssue, selectedRep.State)
+
+	letter := &Letter{
+		Subject: subject,
+		Content: letterContent,
+		Metadata: Metadata{
+			Provider:                 "openai",
+			Model:                    c.model,
+			TokensUsed:               openaiResp.Usage.TotalTokens,
+			GeneratedAt:              time.Now(),
+			Tone:                     req.Tone,
+			Theme:                    req.MainIssue,
+			MaxLength:                req.MaxLength,
+			SelectedRepresentativeID: selectedRepID,
+		},
+		CreatedAt:              time.Now(),
+		SelectedRepresentative: selectedRep,
 	}
 
 	return letter, nil
+}
+
+func (c *OpenAIClient) parseAIResponse(content string, availableReps []RepresentativeOption) (int, string, *RepresentativeOption, error) {
+	lines := strings.Split(content, "\n")
+
+	// Look for the selected representative ID in the first few lines
+	selectedRepID := -1
+	letterStartIndex := 0
+
+	for i, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if strings.Contains(strings.ToUpper(trimmedLine), "SELECTED_REPRESENTATIVE_ID:") {
+			// Extract ID from line like "SELECTED_REPRESENTATIVE_ID: 5"
+			parts := strings.Split(trimmedLine, ":")
+			if len(parts) >= 2 {
+				idStr := strings.TrimSpace(parts[1])
+				if id, err := strconv.Atoi(idStr); err == nil {
+					selectedRepID = id
+					letterStartIndex = i + 1
+					break
+				}
+			}
+		}
+	}
+
+	// Be more strict - don't fall back if we can't parse the ID
+	if selectedRepID == -1 {
+		return 0, "", nil, fmt.Errorf("could not find SELECTED_REPRESENTATIVE_ID in AI response. Response: %s", content[:min(500, len(content))])
+	}
+
+	// Find the selected representative
+	var selectedRep *RepresentativeOption
+	for _, rep := range availableReps {
+		if rep.ID == selectedRepID {
+			selectedRep = &rep
+			break
+		}
+	}
+
+	if selectedRep == nil {
+		return 0, "", nil, fmt.Errorf("selected representative ID %d not found in available representatives", selectedRepID)
+	}
+
+	// Extract letter content (everything after the ID line)
+	letterLines := lines[letterStartIndex:]
+	letterContent := strings.TrimSpace(strings.Join(letterLines, "\n"))
+
+	if letterContent == "" {
+		return 0, "", nil, fmt.Errorf("no letter content found after representative ID")
+	}
+
+	// Validate that the letter content mentions the selected representative
+	expectedName := selectedRep.Name
+	if !strings.Contains(letterContent, expectedName) {
+		return 0, "", nil, fmt.Errorf("letter content does not mention selected representative %s (ID: %d). This suggests the AI wrote to a different representative than selected", expectedName, selectedRepID)
+	}
+
+	return selectedRepID, letterContent, selectedRep, nil
 }
 
 func (c *OpenAIClient) ValidateAPIKey(ctx context.Context) error {
@@ -65,41 +284,4 @@ func (c *OpenAIClient) EstimateCost(req *GenerationRequest) float64 {
 	default:
 		return 0.03
 	}
-}
-
-func (c *OpenAIClient) generatePlaceholderLetter(req *GenerationRequest) string {
-	return fmt.Sprintf(`Dear %s %s,
-
-I am writing to you as a concerned constituent from %s to urge your support for stronger data privacy protections and consumer rights in our digital age.
-
-As technology companies continue to collect vast amounts of personal data from American citizens, it has become increasingly clear that our current privacy laws are inadequate to protect consumers from data misuse, unauthorized sharing, and corporate surveillance.
-
-I believe it is crucial that Congress takes immediate action to:
-
-1. Establish comprehensive federal privacy legislation that gives consumers meaningful control over their personal data
-2. Require clear, understandable consent processes for data collection and sharing
-3. Implement strong enforcement mechanisms with significant penalties for violations
-4. Ensure transparency in how companies use and monetize personal information
-
-The residents of %s deserve to know that their elected representatives are working to protect their fundamental right to privacy in the digital realm. I respectfully urge you to support legislation that puts consumer privacy rights first.
-
-Thank you for your time and consideration. I look forward to your response and your leadership on this critical issue.
-
-Sincerely,
-%s
-Constituent, %s
-
----
-This letter was generated using Lettersmith, a privacy-focused advocacy tool.
-Generated on %s using %s (%s)`,
-		req.RepresentativeTitle,
-		req.RepresentativeName,
-		req.UserZipCode,
-		req.RepresentativeState,
-		req.UserName,
-		req.UserZipCode,
-		time.Now().Format("January 2, 2006"),
-		c.GetProviderName(),
-		c.model,
-	)
 }
