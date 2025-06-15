@@ -14,9 +14,11 @@ A containerized Go application that uses AI to generate and send unique letters 
 - ✅ **System status dashboard** with real-time health checks
 - 🗺️ **ZIP code to coordinates conversion** using US Census Bureau data
 - 📧 **Email configuration** and testing (SMTP/SendGrid/Mailgun)
+- 🤖 **AI letter generation** (OpenAI/Anthropic integration complete, generates letters but doesn't save or send them yet)
 
 ### 🔧 In Development
-- 🤖 **AI letter generation** (OpenAI/Anthropic client interfaces exist, functionality in progress)
+- 💾 **Letter storage and history** (AI generates letters but they're not saved to database yet)
+- 📧 **Automated letter sending** (email infrastructure ready, but letter-to-email workflow not implemented)
 
 ### 📋 Planned Features  
 - 📧 **Automated daily email sending** to representatives
@@ -67,9 +69,10 @@ docker compose up -d
 - Email configuration and testing  
 - ZIP code geocoding system
 - Full web interface with real-time status
+- AI letter generation (OpenAI/Anthropic) - generates letters for preview but doesn't save or send them
 
-**🔧 Next: AI Letter Generation**  
-The foundation is complete! AI letter generation is the primary development focus to enable automated advocacy.
+**🔧 Next: Letter Persistence & Sending**  
+AI integration is complete! The next development focus is adding letter storage to the database and implementing the email sending workflow to enable automated advocacy.
 
 ### 🎯 Key Web Interface Features
 
@@ -77,6 +80,7 @@ Once configured, explore these interfaces:
 
 - **📊 System Status** (`/status.html`) - Real-time health monitoring of all services
 - **👥 Representatives** (`/representatives.html`) - Manage your representatives data
+- **✉️ Generate Letters** (`/generate.html`) - AI-powered letter generation for advocacy (preview only, not yet saved or sent)
 - **⚙️ Configuration** (`/`) - Update settings and test email configuration
 
 The system status dashboard shows the health of:
@@ -104,7 +108,7 @@ The web interface is designed to be **user friendly** and handles all the techni
    
    | Generation Method | How it Works | What You Need | Best For | Status |
    |-------------------|--------------|---------------|----------|---------|
-   | **AI-Powered** | Creates unique letters using OpenAI/Anthropic | API key ($) | Personalized, varied content | 🔧 Client interfaces exist, functionality in progress |
+   | **AI-Powered** | Creates unique letters using OpenAI/Anthropic | API key ($) | Personalized, varied content | ✅ **Working** - Generates letters for preview (not yet saved or sent via email) |
    | **Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs | 📋 Planned feature |
    
    - **Email Provider**: Configure SMTP, SendGrid, or Mailgun

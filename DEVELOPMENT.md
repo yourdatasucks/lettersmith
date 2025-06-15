@@ -199,10 +199,40 @@ Comprehensive system health check.
 #### `GET /api/db/debug`
 Database debug information and connection status.
 
-### Planned Endpoints (Not Yet Implemented)
+### ✅ Letter Generation Endpoints (Implemented)
 
-- `POST /api/letters/generate` - Generate a test letter using AI
-- `POST /api/letters/send` - Manually send letters to representatives
+#### `POST /api/letters/generate`
+Generate a test letter using AI (implemented - generates letter for preview but doesn't save or send).
+
+**Request:**
+```json
+{
+  "topic": "privacy protection",
+  "tone": "professional",
+  "max_length": 500
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "letter": {
+    "subject": "Urgent: Support for Consumer Privacy Protection",
+    "content": "Dear Representative Smith...",
+    "selected_representative": {
+      "id": 1,
+      "name": "Representative Smith",
+      "title": "Senator"
+    },
+    "reasoning": "Selected based on federal jurisdiction and privacy committee membership"
+  }
+}
+```
+
+### 📋 Planned Endpoints (Not Yet Implemented)
+
+- `POST /api/letters/send` - Save letter to database and send via email to representatives
 - `GET /api/letters/history` - View sent letters and audit trail
 - `POST /api/scheduler/trigger` - Manually trigger scheduled letter sending
 - `GET /api/scheduler/status` - Check scheduled job status
@@ -301,11 +331,11 @@ lettersmith/
 ├── internal/
 │   ├── config/          # Environment variable configuration
 │   │   └── config.go    # Config structs and loading
-│   ├── ai/              # AI provider interfaces
-│   │   ├── client.go    # Common AI interface
-│   │   ├── openai.go    # OpenAI API client (placeholder)
-│   │   ├── anthropic.go # Anthropic API client (placeholder)
-│   │   └── templates/   # AI prompt templates
+│   ├── ai/              # AI provider interfaces ✅ IMPLEMENTED
+│   │   ├── client.go    # Common AI interface (working)
+│   │   ├── openai.go    # OpenAI API client (working - generates letters)
+│   │   ├── anthropic.go # Anthropic API client (working - generates letters)
+│   │   └── templates/   # AI prompt templates (implemented)
 │   │       └── advocacy-prompt.txt
 │   ├── letters/         # Letter template engine
 │   │   └── templates/   # Letter templates for non-AI generation
@@ -376,14 +406,17 @@ lettersmith/
 - Reliable for transactional email
 - Free tier: 5,000 emails/month for 3 months
 
-### Letter Customization (Planned)
+### Letter Customization (✅ Working via AI)
 
-**Note**: Letter generation is not yet implemented. These are planned features:
+**Current functionality:** AI letter generation is working and supports customization
 
-- **Tone Options**: professional, passionate, conversational, urgent
-- **Max Length**: 100-2000 words (default: 500)
-- **Themes**: Privacy rights, consumer protection, data transparency, corporate accountability
-- **Template Variables**: {{name}}, {{zip_code}}, {{representative_name}}, {{state}}
+- **✅ Tone Options**: professional, passionate, conversational, urgent (AI adapts based on prompt)
+- **✅ Max Length**: 100-2000 words (configurable, default: 500)
+- **✅ Themes**: Privacy rights, consumer protection, data transparency, corporate accountability (AI selects appropriate theme)
+- **✅ Representative Selection**: AI automatically selects best representative based on issue type and jurisdiction
+- **✅ Template Variables**: User name, ZIP code, representative name, state (automatically populated)
+
+**Note**: Generated letters are displayed for preview but not yet saved to database or sent via email.
 
 For current implementation status, see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
