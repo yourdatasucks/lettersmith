@@ -40,7 +40,7 @@ internal/ai/openai.go     # OpenAI API client (COMPLETED)
 internal/ai/client.go     # Common AI interface (COMPLETED)
 ```
 
-**Status: ✅ COMPLETED AND WORKING**
+**Status: ✅ COMPLETED AND WORKING (with limitations)**
 - ✅ Interface and structure defined
 - ✅ AI prompt template structure created (`internal/ai/templates/advocacy-prompt.txt`)
 - ✅ API calls and letter generation working
@@ -48,20 +48,32 @@ internal/ai/client.go     # Common AI interface (COMPLETED)
 - ✅ Error handling and retries
 - ✅ Representative selection logic
 - ✅ Letter generation endpoint `/api/letters/generate`
+- ⚠️ **Testing Status**: GPT-4 thoroughly tested, other models less tested
+- ⚠️ **Known Issue**: Word count limitation (≤500 words reliable, >500 words problematic)
 
 ### 2.2 Anthropic Client Implementation ✅
 ```bash
 internal/ai/anthropic.go  # Anthropic API client (COMPLETED)
 ```
 
-**Status: ✅ COMPLETED AND WORKING**
+**Status: ✅ COMPLETED AND WORKING (less tested)**
 - ✅ Interface and structure defined  
 - ✅ Claude API integration working
 - ✅ Rate limiting compliance
 - ✅ Letter generation functionality working
 - ✅ Shared prompt template with OpenAI
+- ⚠️ **Testing Status**: Less extensively tested than GPT-4
+- ⚠️ **Potential Issue**: May have similar word count limitations as OpenAI
 
 **Note:** AI generates letters for preview but doesn't yet save them to database or send via email.
+
+**AI Integration Status:**
+- ✅ GPT-4 integration complete and tested (with known limitations)
+- ✅ Anthropic Claude integration implemented (less tested)
+- ✅ Automatic representative selection working reliably
+- ✅ Letter generation endpoint `/api/letters/generate` functional
+- ⚠️ **Known Issue**: Word count limitation - reliably generates ≤500 words, struggles with longer requests (>500 words) despite user configuration
+- 🔧 Letter persistence and email sending workflow not yet implemented
 
 ## Phase 3: Representative Lookup Service (COMPLETED ✅)
 
@@ -269,11 +281,13 @@ open http://localhost:8080
 - [x] System provides comprehensive health monitoring
 - [x] Email configuration can be tested and validated
 
-### ✅ AI Integration Metrics (ACHIEVED)
+### ✅ AI Integration Metrics (ACHIEVED - with limitations)
 - [x] User can generate a test letter via AI
 - [x] AI automatically selects appropriate representative
 - [x] System integrates letter generation with representative data
 - [x] Generated letters are displayed for preview
+- ⚠️ **Limitation**: Word count works reliably for ≤500 words only
+- ⚠️ **Testing Gap**: GPT-4 thoroughly tested, other models need more testing
 
 ### 🔧 Next Phase Metrics (IN PROGRESS)
 - [ ] Generated letters can be saved to database
@@ -285,7 +299,7 @@ open http://localhost:8080
 - [ ] System provides full audit trail of sent letters
 - [ ] Template-based generation as alternative to AI
 
-**Current Status:** ✅ **AI Integration Complete (10/13 metrics achieved)** - Letter generation, representative selection, and AI integration are fully operational. Ready for letter persistence and email sending phase.
+**Current Status:** ✅ **AI Integration Complete (10/13 metrics achieved - with known limitations)** - Letter generation, representative selection, and AI integration are fully operational for letters ≤500 words. Word count configuration limitations exist for longer letters. Ready for letter persistence and email sending phase.
 
 ## Current Achievement Summary
 
@@ -294,8 +308,12 @@ Lettersmith has successfully evolved from a foundation tool into a **working AI-
 - ✅ **Full-stack web application** with intuitive configuration UI
 - ✅ **Complete representatives system** with OpenStates API integration  
 - ✅ **Robust system monitoring** with real-time health checks
-- ✅ **AI letter generation** with OpenAI/Anthropic integration - generates personalized letters
+- ✅ **AI letter generation** with OpenAI/Anthropic integration - generates personalized letters (≤500 words reliable)
 - ✅ **Automatic representative selection** - AI chooses best representative based on issue analysis
 - ✅ **Production-ready deployment** with Docker and PostgreSQL
+
+**Known Limitations:**
+- ⚠️ AI word count configuration: Works reliably for ≤500 words, struggles with longer requests
+- ⚠️ Testing coverage: GPT-4 thoroughly tested, other AI models less tested
 
 **Next Phase:** Implementing letter persistence and email sending will complete the full advocacy workflow, enabling users to automatically save and send their AI-generated privacy letters to representatives. 

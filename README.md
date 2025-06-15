@@ -16,6 +16,10 @@ A containerized Go application that uses AI to generate and send unique letters 
 - 📧 **Email configuration** and testing (SMTP/SendGrid/Mailgun)
 - 🤖 **AI letter generation** (OpenAI/Anthropic integration complete, generates letters but doesn't save or send them yet)
 
+**Known Limitations:**
+- AI letter generation currently works reliably for ≤500 words but has issues generating longer letters (>500 words) even when configured
+- Only GPT-4 has been thoroughly tested; other models may have different behavior
+
 ### 🔧 In Development
 - 💾 **Letter storage and history** (AI generates letters but they're not saved to database yet)
 - 📧 **Automated letter sending** (email infrastructure ready, but letter-to-email workflow not implemented)
@@ -74,6 +78,13 @@ docker compose up -d
 **🔧 Next: Letter Persistence & Sending**  
 AI integration is complete! The next development focus is adding letter storage to the database and implementing the email sending workflow to enable automated advocacy.
 
+**Current AI Status:**
+- ✅ GPT-4 integration working and tested
+- ✅ Anthropic Claude integration implemented (less tested)
+- ✅ Automatic representative selection working
+- ⚠️ Word count limitation: reliably generates ≤500 words, struggles with longer requests
+- 🔧 Letter persistence and email sending not yet implemented
+
 ### 🎯 Key Web Interface Features
 
 Once configured, explore these interfaces:
@@ -108,7 +119,7 @@ The web interface is designed to be **user friendly** and handles all the techni
    
    | Generation Method | How it Works | What You Need | Best For | Status |
    |-------------------|--------------|---------------|----------|---------|
-   | **AI-Powered** | Creates unique letters using OpenAI/Anthropic | API key ($) | Personalized, varied content | ✅ **Working** - Generates letters for preview (not yet saved or sent via email) |
+   | **AI-Powered** | Creates unique letters using OpenAI/Anthropic | API key ($) | Personalized, varied content | ✅ **Working** - Generates letters for preview (GPT-4 tested, ≤500 words reliable, >500 words limited) |
    | **Template-Based** | Uses pre-written letter templates | Nothing extra | Quick setup, no costs | 📋 Planned feature |
    
    - **Email Provider**: Configure SMTP, SendGrid, or Mailgun
@@ -244,11 +255,11 @@ lettersmith/
 │   └── migrate/         # Database migration tool ✅ (optional - migrations auto-run on startup)
 ├── internal/
 │   ├── config/          # Environment variable configuration ✅
-│   ├── ai/              # AI provider interfaces 🔧 (clients exist, functionality in progress)
-│   │   ├── client.go    # Common AI interface
-│   │   ├── openai.go    # OpenAI API client (placeholder)
-│   │   ├── anthropic.go # Anthropic API client (placeholder)
-│   │   └── templates/   # AI prompt templates
+│   ├── ai/              # AI provider interfaces ✅ IMPLEMENTED
+│   │   ├── client.go    # Common AI interface (working)
+│   │   ├── openai.go    # OpenAI API client (working - GPT-4 tested)
+│   │   ├── anthropic.go # Anthropic API client (working - less tested)
+│   │   └── templates/   # AI prompt templates (implemented)
 │   │       └── advocacy-prompt.txt
 │   ├── letters/         # Letter template engine 📋 (structure ready)
 │   │   └── templates/   # Letter templates for non-AI generation

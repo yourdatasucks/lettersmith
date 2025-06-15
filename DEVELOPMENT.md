@@ -333,8 +333,8 @@ lettersmith/
 │   │   └── config.go    # Config structs and loading
 │   ├── ai/              # AI provider interfaces ✅ IMPLEMENTED
 │   │   ├── client.go    # Common AI interface (working)
-│   │   ├── openai.go    # OpenAI API client (working - generates letters)
-│   │   ├── anthropic.go # Anthropic API client (working - generates letters)
+│   │   ├── openai.go    # OpenAI API client (working - GPT-4 tested, word count limitations)
+│   │   ├── anthropic.go # Anthropic API client (working - less tested)
 │   │   └── templates/   # AI prompt templates (implemented)
 │   │       └── advocacy-prompt.txt
 │   ├── letters/         # Letter template engine
@@ -406,15 +406,20 @@ lettersmith/
 - Reliable for transactional email
 - Free tier: 5,000 emails/month for 3 months
 
-### Letter Customization (✅ Working via AI)
+### Letter Customization (✅ Working via AI - with limitations)
 
 **Current functionality:** AI letter generation is working and supports customization
 
 - **✅ Tone Options**: professional, passionate, conversational, urgent (AI adapts based on prompt)
-- **✅ Max Length**: 100-2000 words (configurable, default: 500)
+- **⚠️ Max Length**: 100-1000 words configurable, but reliably works only for ≤500 words (AI struggles with longer requests despite configuration)
 - **✅ Themes**: Privacy rights, consumer protection, data transparency, corporate accountability (AI selects appropriate theme)
 - **✅ Representative Selection**: AI automatically selects best representative based on issue type and jurisdiction
 - **✅ Template Variables**: User name, ZIP code, representative name, state (automatically populated)
+
+**Testing Status:**
+- **GPT-4**: Thoroughly tested and working (with word count limitation)
+- **Anthropic Claude**: Implemented but less tested
+- **GPT-3.5-turbo**: Available but not extensively tested
 
 **Note**: Generated letters are displayed for preview but not yet saved to database or sent via email.
 
