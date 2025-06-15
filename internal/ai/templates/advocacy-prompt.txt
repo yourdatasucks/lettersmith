@@ -50,7 +50,14 @@ CONTENT REQUIREMENTS:
 - Address concern: {{.Advocacy.SpecificConcern}}
 - Request action: {{.Advocacy.RequestedAction}}
 - Maintain {{.Preferences.Tone}} tone
-- Approximately {{.Preferences.MaxLength}} words
+- CRITICAL: Write EXACTLY {{.Preferences.MaxLength}} words (±25 words). Count your words carefully!
+
+WORD COUNT ENFORCEMENT:
+Your response must be approximately {{.Preferences.MaxLength}} words. This is a strict requirement.
+- If {{.Preferences.MaxLength}} is 300, write 275-325 words
+- If {{.Preferences.MaxLength}} is 500, write 475-525 words  
+- If {{.Preferences.MaxLength}} is 800, write 775-825 words
+Do NOT significantly exceed or fall short of this target.
 
 CONSTITUENT DETAILS:
 - Name: {{.Constituent.Name}}

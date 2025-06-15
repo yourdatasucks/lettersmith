@@ -1884,5 +1884,11 @@ func handleGenerateLetter(w http.ResponseWriter, r *http.Request, cfg *config.Co
 			"selected_representative_id": letter.Metadata.SelectedRepresentativeID,
 			"reasoning":                  "AI automatically selected the most appropriate representative for this issue",
 		},
+		"configuration_used": map[string]interface{}{
+			"max_length":  maxLength,
+			"tone":        letterTone,
+			"ai_provider": aiProvider,
+			"ai_model":    aiModel,
+		},
 	})
 }
