@@ -149,10 +149,10 @@ func (c *AnthropicClient) GenerateLetter(ctx context.Context, req *GenerationReq
 		errorBody.ReadFrom(resp.Body)
 
 		if resp.StatusCode == 429 {
-			return nil, fmt.Errorf("Anthropic rate limit exceeded (429). Error details: %s. Try again in a few minutes", errorBody.String())
+			return nil, fmt.Errorf("anthropic rate limit exceeded (429). Error details: %s. Try again in a few minutes", errorBody.String())
 		}
 
-		return nil, fmt.Errorf("Anthropic API returned status %d: %s", resp.StatusCode, errorBody.String())
+		return nil, fmt.Errorf("anthropic API returned status %d: %s", resp.StatusCode, errorBody.String())
 	}
 
 	var anthropicResp AnthropicResponse
