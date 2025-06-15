@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Representatives - Lettersmith</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1>Lettersmith</h1>
+            <p class="tagline">AI-Powered Privacy Advocacy</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <a href="index.html" class="nav-tab">Configuration</a>
+            <a href="status.html" class="nav-tab">System Status</a>
+            <a href="representatives.html" class="nav-tab active">Representatives</a>
+            <a href="generate.html" class="nav-tab">Generate Letter</a>
+        </nav>
+
+        <div class="page-intro-card">
+            <h2>🏛️ My Representatives</h2>
+            <p>Manage and sync your political representatives from OpenStates. These representatives will be available for AI letter generation.</p>
+        </div>
+
+        <div id="loading" class="loading-container">
+            <div class="status-loading"></div>
+            <p>Loading representatives...</p>
+        </div>
+
+        <div id="content" class="content-hidden">
+            <!-- Actions Bar -->
+            <section class="config-section">
+                <h2>📍 Actions</h2>
+                <div class="button-group">
+                    <button id="sync-btn" class="btn btn-primary">
+                        🔄 Sync from OpenStates
+                    </button>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        ↻ Refresh
+                    </button>
+                </div>
+                <div id="sync-status" style="margin-top: 1rem; display: none;"></div>
+            </section>
+
+            <!-- Representatives List -->
+            <section class="config-section">
+                <h2>🏛️ Your Representatives (<span id="rep-count">0</span>)</h2>
+                <div id="representatives-container"></div>
+            </section>
+
+            <!-- Error Display -->
+            <div id="error-display" class="config-section content-hidden error-section">
+                <h2>❌ Error</h2>
+                <div id="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/representatives.js"></script>
+</body>
+</html> 

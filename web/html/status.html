@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status - Lettersmith</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1>Lettersmith</h1>
+            <p class="tagline">AI-Powered Privacy Advocacy</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <a href="index.html" class="nav-tab">Configuration</a>
+            <a href="status.html" class="nav-tab active">System Status</a>
+            <a href="representatives.html" class="nav-tab">Representatives</a>
+            <a href="generate.html" class="nav-tab">Generate Letter</a>
+        </nav>
+
+        <div class="page-intro-card">
+            <h2>📊 System Health Monitor</h2>
+            <p>Monitor the health and configuration of all system components in real-time.</p>
+        </div>
+
+        <div id="loading-indicator" class="loading-container">
+            <div class="status-loading"></div>
+            <p>Checking system status...</p>
+        </div>
+
+        <div id="status-content" class="content-hidden">
+            <!-- Overall Status -->
+            <div id="overall-status" class="overall-status">
+                <h2 id="overall-title">System Status</h2>
+                <div class="completion-bar">
+                    <div id="completion-fill" class="completion-fill"></div>
+                </div>
+                <p id="overall-summary"></p>
+                <p><small id="last-updated"></small></p>
+                <button id="refresh-btn" class="refresh-btn">Refresh Status</button>
+            </div>
+
+            <!-- Services Grid -->
+            <div id="services-grid" class="status-grid">
+                <!-- Services will be populated here -->
+            </div>
+
+            <!-- Missing Components -->
+            <div id="missing-components" class="missing-components content-hidden">
+                <h3>Missing Components</h3>
+                <p>The following components need implementation or configuration:</p>
+                <ul id="missing-list" class="missing-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/status.js"></script>
+</body>
+</html> 
