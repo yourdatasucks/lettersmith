@@ -8,52 +8,55 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🏛️ My Representatives</h1>
-            <p class="tagline">Manage your political representatives</p>
+        <header class="page-header">
+            <h1>Lettersmith</h1>
+            <p class="tagline">AI-Powered Privacy Advocacy</p>
         </header>
 
         <nav class="nav-tabs">
             <a href="index.html" class="nav-tab">Configuration</a>
             <a href="status.html" class="nav-tab">System Status</a>
             <a href="representatives.html" class="nav-tab active">Representatives</a>
-            <a href="generate.html" class="nav-tab">AI Letter Generator</a>
+            <a href="generate.html" class="nav-tab">Generate Letter</a>
         </nav>
 
-        <main>
-            <div id="loading" class="text-center" style="padding: 2rem;">
-                <div class="status-loading"></div>
-                <p style="margin-top: 1rem;">Loading representatives...</p>
-            </div>
+        <div class="page-intro-card">
+            <h2>🏛️ My Representatives</h2>
+            <p>Manage and sync your political representatives from OpenStates. These representatives will be available for AI letter generation.</p>
+        </div>
 
-            <div id="content" style="display: none;">
-                <!-- Actions Bar -->
-                <section class="config-section">
-                    <h2>📍 Actions</h2>
-                    <div class="button-group">
-                        <button id="sync-btn" class="btn btn-primary">
-                            🔄 Sync from OpenStates
-                        </button>
-                        <button id="refresh-btn" class="btn btn-secondary">
-                            ↻ Refresh
-                        </button>
-                    </div>
-                    <div id="sync-status" style="margin-top: 1rem; display: none;"></div>
-                </section>
+        <div id="loading" class="loading-container">
+            <div class="status-loading"></div>
+            <p>Loading representatives...</p>
+        </div>
 
-                <!-- Representatives List -->
-                <section class="config-section">
-                    <h2>🏛️ Your Representatives (<span id="rep-count">0</span>)</h2>
-                    <div id="representatives-container"></div>
-                </section>
-
-                <!-- Error Display -->
-                <div id="error-display" class="config-section" style="display: none; background: #fee; border: 1px solid #fcc;">
-                    <h2>❌ Error</h2>
-                    <div id="error-message"></div>
+        <div id="content" class="content-hidden">
+            <!-- Actions Bar -->
+            <section class="config-section">
+                <h2>📍 Actions</h2>
+                <div class="button-group">
+                    <button id="sync-btn" class="btn btn-primary">
+                        🔄 Sync from OpenStates
+                    </button>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        ↻ Refresh
+                    </button>
                 </div>
+                <div id="sync-status" style="margin-top: 1rem; display: none;"></div>
+            </section>
+
+            <!-- Representatives List -->
+            <section class="config-section">
+                <h2>🏛️ Your Representatives (<span id="rep-count">0</span>)</h2>
+                <div id="representatives-container"></div>
+            </section>
+
+            <!-- Error Display -->
+            <div id="error-display" class="config-section content-hidden error-section">
+                <h2>❌ Error</h2>
+                <div id="error-message"></div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script src="/js/representatives.js"></script>

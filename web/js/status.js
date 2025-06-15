@@ -74,10 +74,9 @@ function updateServiceCard(serviceKey, service) {
     `;
     
     // Add subtle animation for changes
-    card.style.transform = 'scale(1.02)';
-    card.style.transition = 'transform 0.2s ease';
+    card.classList.add('service-card-updating');
     setTimeout(() => {
-        card.style.transform = 'scale(1)';
+        card.classList.remove('service-card-updating');
     }, 200);
 }
 
@@ -152,7 +151,7 @@ function renderOverallStatus(status, summary, isInitialLoad = false) {
     summaryEl.innerHTML = `
         <strong>${summary.healthy_services} of ${summary.total_services}</strong> services healthy
         <br>
-        <span style="font-size: 0.875rem;">System ${percentage}% configured</span>
+        <span class="status-summary-detail">System ${percentage}% configured</span>
     `;
 
     // Update timestamp
@@ -178,11 +177,11 @@ function renderMissingComponents(missing, isInitialLoad = false) {
     const list = document.getElementById('missing-list');
 
     if (missing.length === 0) {
-        container.style.display = 'none';
+        container.classList.add('content-hidden');
         return;
     }
 
-    container.style.display = 'block';
+    container.classList.remove('content-hidden');
     list.innerHTML = '';
 
     missing.forEach(component => {
@@ -195,21 +194,21 @@ function renderMissingComponents(missing, isInitialLoad = false) {
 function showError(message) {
     const loadingIndicator = document.getElementById('loading-indicator');
     loadingIndicator.innerHTML = `
-        <div style="color: var(--danger-color); padding: 2rem;">
+        <div class="error-display">
             <h3>Error Loading Status</h3>
             <p>${message}</p>
             <button onclick="updateStatus(true)" class="refresh-btn">Retry</button>
         </div>
     `;
-    loadingIndicator.style.display = 'block';
+    loadingIndicator.classList.remove('content-hidden');
 }
 
 function hideLoading() {
     const loadingIndicator = document.getElementById('loading-indicator');
     const statusContent = document.getElementById('status-content');
     
-    loadingIndicator.style.display = 'none';
-    statusContent.style.display = 'block';
+    loadingIndicator.classList.add('content-hidden');
+    statusContent.classList.remove('content-hidden');
 }
 
 function showLoading() {
@@ -218,10 +217,10 @@ function showLoading() {
     
     loadingIndicator.innerHTML = `
         <div class="status-loading"></div>
-        <p style="margin-top: 1rem;">Checking system status...</p>
+        <p>Checking system status...</p>
     `;
-    loadingIndicator.style.display = 'block';
-    statusContent.style.display = 'none';
+    loadingIndicator.classList.remove('content-hidden');
+    statusContent.classList.add('content-hidden');
 }
 
 async function updateStatus(isInitialLoad = false) {

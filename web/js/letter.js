@@ -61,62 +61,53 @@ function generateLetter(advocacy, button) {
 }
 
 function showResult(data) {
-    const selectedRep = data.letter.selected_representative;
-    const letter = data.letter;
-    const metadata = letter.metadata;
+    const container = document.getElementById('result-container');
     
-    const resultHtml = `
-        <div class="letter-result">
-            <div class="result-header">
-                <h3>✅ Letter Generated Successfully!</h3>
-                <div class="ai-selection-info">
-                    <h4>🤖 AI Selected Representative:</h4>
-                    <div class="selected-rep-card">
-                        <strong>${selectedRep.title} ${selectedRep.name}</strong>
-                        <span class="rep-details">
-                            ${selectedRep.state}${selectedRep.party ? ` (${selectedRep.party})` : ''}
-                            ${selectedRep.district ? ` - District ${selectedRep.district}` : ''}
-                        </span>
-                        <p class="selection-reasoning">
-                            ${data.ai_selection.reasoning}
-                        </p>
-                    </div>
+    container.innerHTML = `
+        <div class="result-header">
+            <h3>✅ Letter Generated Successfully!</h3>
+            <div class="info-message">
+                <p><strong>Configuration Used:</strong> ${data.configuration_used.max_length} words max, ${data.configuration_used.tone} tone, ${data.configuration_used.ai_provider} (${data.configuration_used.ai_model})</p>
+            </div>
+        </div>
+        
+        <div class="ai-selection-info">
+            <h4>🤖 AI Representative Selection</h4>
+            <div class="selected-rep-card">
+                <strong>${data.letter.selected_representative.title} ${data.letter.selected_representative.name}</strong>
+                <span class="rep-details">${data.letter.selected_representative.state}${data.letter.selected_representative.party ? ` - ${data.letter.selected_representative.party}` : ''}</span>
+                <div class="selection-reasoning">
+                    <em>${data.ai_selection.reasoning}</em>
                 </div>
             </div>
-            
-            <div class="letter-content">
-                <div class="letter-header">
-                    <h4>Subject: ${letter.subject}</h4>
-                </div>
-                
-                <div class="letter-body">
-                    <pre>${letter.content}</pre>
-                </div>
-            </div>
-            
-            <div class="letter-actions">
-                <button onclick="copyToClipboard('${letter.content.replace(/'/g, "\\'")}', this)" class="btn btn-secondary">
-                    Copy Letter
-                </button>
-                <button onclick="generateNewLetter()" class="btn btn-primary">
-                    Generate Another Letter
-                </button>
-            </div>
-            
-            <div class="letter-metadata">
-                <small>
-                    Generated using ${metadata.provider} (${metadata.model}) • 
-                    ${metadata.tokens_used} tokens • 
-                    ${metadata.tone} tone • 
-                    Theme: ${metadata.theme}
-                </small>
-            </div>
+        </div>
+
+        <div class="letter-header">
+            <h4>📝 Generated Letter</h4>
+        </div>
+        
+        <div class="letter-body">
+            <pre>${data.letter.content}</pre>
+        </div>
+        
+        <div class="letter-actions">
+            <button class="btn btn-primary" onclick="copyToClipboard()">📋 Copy Letter</button>
+            <button class="btn btn-secondary" onclick="downloadLetter()">💾 Download as Text</button>
+        </div>
+        
+        <div class="letter-metadata">
+            <small>
+                Generated: ${new Date(data.letter.created_at).toLocaleString()} | 
+                Tokens: ${data.letter.metadata.tokens_used} | 
+                Actual Length: ~${data.letter.content.split(' ').length} words
+            </small>
         </div>
     `;
     
-    // Replace form with result
-    const container = document.getElementById('letter-gen-content');
-    container.innerHTML = resultHtml;
+    container.classList.remove('hidden');
+    
+    // Store letter content for copy/download functions
+    window.currentLetter = data.letter.content;
 }
 
 function showError(message) {
@@ -150,28 +141,65 @@ function setButtonLoading(button, isLoading) {
     }
 }
 
-function copyToClipboard(text, button) {
-    navigator.clipboard.writeText(text).then(() => {
-        const originalText = button.textContent;
-        button.textContent = '✅ Copied!';
-        button.classList.add('success');
-        
-        setTimeout(() => {
-            button.textContent = originalText;
-            button.classList.remove('success');
-        }, 2000);
+function copyToClipboard() {
+    if (!window.currentLetter) {
+        showNotification('No letter content to copy', 'error');
+        return;
+    }
+    
+    navigator.clipboard.writeText(window.currentLetter).then(() => {
+        showNotification('Letter copied to clipboard!', 'success');
     }).catch(err => {
-        console.error('Failed to copy text: ', err);
-        button.textContent = '❌ Copy Failed';
-        button.classList.add('error');
-        
-        setTimeout(() => {
-            button.textContent = 'Copy Letter';
-            button.classList.remove('error');
-        }, 2000);
+        console.error('Failed to copy: ', err);
+        showNotification('Failed to copy letter', 'error');
     });
+}
+
+function downloadLetter() {
+    if (!window.currentLetter) {
+        showNotification('No letter content to download', 'error');
+        return;
+    }
+    
+    const blob = new Blob([window.currentLetter], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `advocacy-letter-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Letter downloaded!', 'success');
 }
 
 function generateNewLetter() {
     location.reload();
+}
+
+function showNotification(message, type = 'success') {
+    // Remove any existing notifications
+    const existing = document.querySelector('.floating-notification');
+    if (existing) {
+        existing.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `floating-notification ${type}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.classList.add('slide-up');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }
+    }, 3000);
 }

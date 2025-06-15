@@ -1156,3 +1156,120 @@ footer {
         padding: 0.4rem 0.8rem !important;
     }
 }
+
+/* Page introduction cards */
+.page-intro-card {
+    background: var(--surface);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.page-intro-card h2 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+
+.page-intro-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+
+
+/* Loading states */
+.loading-container {
+    padding: 2rem;
+    text-align: center;
+}
+
+.loading-container p {
+    margin-top: 1rem;
+    color: var(--text-secondary);
+}
+
+/* Content containers */
+.content-hidden {
+    display: none;
+}
+
+.content-visible {
+    display: block;
+}
+
+/* Error sections */
+.error-section {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    color: var(--error-text);
+}
+
+/* Service card animations */
+.service-card-updating {
+    transform: scale(1.02);
+    transition: transform 0.2s ease;
+}
+
+/* Status text styling */
+.status-summary-detail {
+    font-size: 0.875rem;
+}
+
+/* Error display styling */
+.error-display {
+    color: var(--danger-color);
+    padding: 2rem;
+}
+
+/* Status message styling */
+.status-success {
+    color: var(--success-color);
+}
+
+.status-error {
+    color: var(--danger-color);
+}
+
+/* Notification styling */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+    max-width: 400px;
+    box-shadow: 0 4px 12px var(--box-shadow-medium);
+}
+
+.notification.success {
+    background: var(--success-color);
+}
+
+.notification.error {
+    background: var(--danger-color);
+}
+
+.notification.slide-out {
+    animation: slideOut 0.3s ease-in forwards;
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}

@@ -5,9 +5,9 @@ async function loadRepresentatives() {
     const content = document.getElementById('content');
     const errorDisplay = document.getElementById('error-display');
     
-    loading.style.display = 'block';
-    content.style.display = 'none';
-    errorDisplay.style.display = 'none';
+    loading.classList.remove('content-hidden');
+    content.classList.add('content-hidden');
+    errorDisplay.classList.add('content-hidden');
 
     try {
         const response = await fetch('/api/representatives');
@@ -20,14 +20,14 @@ async function loadRepresentatives() {
         representatives = data.representatives || [];
         renderRepresentatives();
 
-        loading.style.display = 'none';
-        content.style.display = 'block';
+        loading.classList.add('content-hidden');
+        content.classList.remove('content-hidden');
 
     } catch (error) {
         console.error('Error:', error);
         showError(error.message);
-        loading.style.display = 'none';
-        content.style.display = 'block';
+        loading.classList.add('content-hidden');
+        content.classList.remove('content-hidden');
     }
 }
 
@@ -131,7 +131,7 @@ async function syncRepresentatives() {
     
     syncBtn.disabled = true;
     syncBtn.textContent = '⏳ Syncing...';
-    syncStatus.style.display = 'block';
+    syncStatus.classList.remove('content-hidden');
     syncStatus.innerHTML = '<p>🔄 Fetching representatives from OpenStates API...</p>';
 
     try {
@@ -147,16 +147,16 @@ async function syncRepresentatives() {
         representatives = data.representatives || [];
         renderRepresentatives();
         
-        syncStatus.innerHTML = `<p style="color: green;">✅ Successfully synced ${data.count} representatives!</p>`;
+        syncStatus.innerHTML = `<p class="status-success">✅ Successfully synced ${data.count} representatives!</p>`;
 
     } catch (error) {
         console.error('Sync error:', error);
-        syncStatus.innerHTML = `<p style="color: red;">❌ Sync failed: ${error.message}</p>`;
+        syncStatus.innerHTML = `<p class="status-error">❌ Sync failed: ${error.message}</p>`;
     } finally {
         syncBtn.disabled = false;
         syncBtn.textContent = '🔄 Sync from OpenStates';
         setTimeout(() => {
-            syncStatus.style.display = 'none';
+            syncStatus.classList.add('content-hidden');
         }, 5000);
     }
 }
@@ -166,7 +166,7 @@ function showError(message) {
         <p>${message}</p>
         <p><small>Make sure USER_ZIP_CODE and OPENSTATES_API_KEY are configured in your .env file.</small></p>
     `;
-    document.getElementById('error-display').style.display = 'block';
+    document.getElementById('error-display').classList.remove('content-hidden');
 }
 
 // Representative editing functions
@@ -308,20 +308,6 @@ function showNotification(message, type = 'success') {
 
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 1rem 1.5rem;
-        border-radius: 6px;
-        color: white;
-        font-weight: 500;
-        z-index: 1000;
-        animation: slideIn 0.3s ease-out;
-        max-width: 400px;
-        box-shadow: 0 4px 12px var(--box-shadow-medium);
-        background: ${type === 'success' ? 'var(--success-color)' : 'var(--danger-color)'};
-    `;
     notification.textContent = message;
 
     document.body.appendChild(notification);
@@ -329,7 +315,7 @@ function showNotification(message, type = 'success') {
     // Auto remove after 5 seconds
     setTimeout(() => {
         if (notification.parentNode) {
-            notification.style.animation = 'slideOut 0.3s ease-in forwards';
+            notification.classList.add('slide-out');
             setTimeout(() => notification.remove(), 300);
         }
     }, 5000);
