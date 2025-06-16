@@ -68,12 +68,7 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.tag.outputs.is_release == 'true'
-        uses: actions/create-release@v1
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" --title "Release ${{ steps.tag.outputs.tag }}" --notes-file release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          release_name: Release ${{ steps.tag.outputs.tag }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
